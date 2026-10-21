@@ -25,7 +25,7 @@
 
 | ID | Feature | Description | Status | Spec | Created |
 |----|---------|-------------|--------|------|---------|
-| PROJ-1 | Konto & Login | Verwalter registrieren ihren Bildungsträger mit E-Mail und Passwort, melden sich an und ab, sehen nur die Daten ihres eigenen Trägers und starten mit 5 Lizenzen. | Architected | [PROJ-1-account-login/](PROJ-1-account-login/) | 2026-10-21 |
+| PROJ-1 | Konto & Login | Verwalter registrieren ihren Bildungsträger mit E-Mail und Passwort, melden sich an und ab, sehen nur die Daten ihres eigenen Trägers und starten mit 5 Lizenzen. | Tasked | [PROJ-1-account-login/](PROJ-1-account-login/) | 2026-10-21 |
 | PROJ-2 | Lizenzverwaltung | Verwalter sehen ihr Kontingent, weisen Teilnehmern per E-Mail-Adresse eine Lizenz zu und entziehen sie wieder, bei vollem Kontingent ist keine Zuweisung möglich. | Roadmap | — | 2026-10-21 |
 | PROJ-3 | Einladungs-E-Mail | Bei jeder Zuweisung bekommt der Teilnehmer automatisch eine Einladung über einen externen E-Mail-Dienst, der Versandstatus ist pro Lizenz sichtbar. | Roadmap | — | 2026-10-21 |
 
