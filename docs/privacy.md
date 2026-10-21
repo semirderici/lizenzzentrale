@@ -1,72 +1,64 @@
-# Privacy Record — what this product does with personal data
+# Datenschutz-Übersicht — was dieses Produkt mit personenbezogenen Daten tut
 
-> The honest overview of which personal data this product processes, why, and for how long.
+> Die ehrliche Übersicht, welche personenbezogenen Daten dieses Produkt verarbeitet, warum und wie lange.
 >
-> - Created and kept current by `/dsgvo`, one entry per processing purpose.
-> - Grows with the product: when a feature changes what is stored, its entry changes too.
-> - **Altitude:** purposes, legal bases, retention, and who else sees the data. Field-level detail lives in `docs/data-model.md` and the feature designs.
+> - Erstellt und aktuell gehalten von `/dsgvo`, ein Eintrag pro Verarbeitungszweck.
+> - Wächst mit dem Produkt: Ändert ein Feature, was gespeichert wird, ändert sich auch sein Eintrag.
+> - **Ebene:** Zwecke, Rechtsgrundlagen, Aufbewahrung und wer die Daten sonst sieht. Details auf Feldebene stehen in `docs/data-model.md` und den Feature-Designs.
 >
-> This maps closely onto the record of processing activities (*Verarbeitungsverzeichnis*, Art. 30 GDPR; Art. 12 Swiss DSG) — but it is an engineering document, not a legal filing. A lawyer or your data protection officer / advisor has the final word on whether it is complete for your situation.
+> Das entspricht weitgehend dem Verzeichnis von Verarbeitungstätigkeiten (*Verarbeitungsverzeichnis*, Art. 30 DSGVO) — ist aber ein technisches Dokument, keine rechtliche Erklärung. Ob es für den konkreten Fall vollständig ist, entscheidet ein Anwalt oder Datenschutzbeauftragter.
 
-**Applicable law:** _GDPR (EU/DE) · DSG (CH) · both — from `.ai-eng-kit` → `law`; the rules are in `docs/law/`_
-**Data protection stance:** _lean | standard | strict — set in `docs/PRD.md` → Constraints_
-**Controller (Verantwortlicher):** _your company / your name and address — the legal entity behind the product_
-**Last reviewed:** _YYYY-MM-DD_
+**Anwendbares Recht:** DSGVO (EU/DE) — Regeln in `docs/law/gdpr.md`
+**Datenschutz-Haltung:** lean (`docs/PRD.md` → Rahmenbedingungen)
+**Verantwortlicher:** _offen — wird vor dem Live-Gang festgelegt (siehe Offene Punkte)_
+**Zuletzt geprüft:** 2026-10-21 (`/dsgvo PROJ-1`)
 
 ---
 
-## Processing activities
+## Verarbeitungen
 
-_One row per purpose, not per table. "Run user accounts" is a purpose; "the profiles table" is not._
+| Zweck | Daten | Wessen | Rechtsgrundlage | Aufbewahrung | Beteiligte Auftragsverarbeiter |
+|-------|-------|--------|-----------------|--------------|-------------------------------|
+| Verwalter-Konten führen (PROJ-1) | E-Mail-Adresse, Passwort-Hash, Anmeldezeitpunkte und IP-Adressen (Supabase Auth), Zuordnung zum Bildungsträger, Trägername (nur bei Einzelunternehmern personenbezogen) | Verwalter der Bildungsträger | Art. 6 Abs. 1 lit. b DSGVO (Nutzung der Lizenzzentrale); der Verwalter handelt als Ansprechpartner seines Trägers, ergänzend Art. 6 Abs. 1 lit. f | bis zur Löschung auf Anfrage beim Anbieter | Supabase (eu-central-1) |
+| Login vor Raten schützen (PROJ-1) | E-Mail-Adresse, IP-Adresse, Zeitpunkt fehlgeschlagener Anmeldeversuche | alle, die sich anmelden wollen | Art. 6 Abs. 1 lit. f DSGVO (Sicherheit, Art. 32) | höchstens 24 Stunden (PROJ-1 AC-13) | Supabase oder der Speicher, den `/architecture` wählt |
+| Bots abwehren (PROJ-1) | IP-Adresse, Browser-Merkmale | alle Besucher von Login und Registrierung | Art. 6 Abs. 1 lit. f DSGVO (Sicherheit) | laut Angaben des Dienstes | Bot-Prüfdienst — wird bei `/architecture` gewählt |
 
-| Purpose | Data | Whose | Why it is lawful | Retention | Processors involved |
-|---------|------|-------|------------------|-----------|---------------------|
-| _Run user accounts_ | _Email, password hash, display name_ | _Registered users_ | _GDPR: Art. 6(1)(b) contract · DSG: expected purpose, no justification needed_ | _Until account deletion_ | _Supabase (EU)_ |
-| _..._ | _..._ | _..._ | _..._ | _..._ | _..._ |
+## Sensible Daten
 
-## Sensitive data
+- keine
 
-_Health, biometrics, genetics, ethnicity, political opinion, religion, trade union membership, sex life or orientation, criminal matters — and, under the Swiss DSG, social-assistance measures and administrative proceedings (Art. 9 GDPR · Art. 5 lit. c DSG). These carry much stricter rules — usually explicit consent. List them separately so nobody overlooks them, or write "none"._
+## Auftragsverarbeiter
 
-- _none_
+| Dienst | Was er verarbeitet | Region | AVV abgeschlossen | Außerhalb der angemessenen Länder? |
+|--------|--------------------|--------|-------------------|------------------------------------|
+| Supabase | Konten, Bildungsträger, Mitgliedschaften, Anmeldeversuche | eu-central-1 (Frankfurt) | ☐ | US-Firma, Hosting in der EU |
+| Bot-Prüfdienst | IP-Adresse, Browser-Merkmale der Besucher von Login und Registrierung | nicht bestimmt — Dienst noch nicht gewählt | ☐ | nicht bestimmt |
 
-## Processors (Auftragsverarbeiter · Auftragsbearbeiter)
+## Betroffenenrechte — wie sie bedient werden
 
-_Every external service that touches personal data on your behalf (Art. 28 GDPR · Art. 9 DSG). Each needs a data processing agreement (AVV / DPA) — normally a checkbox or a downloadable document in the provider's dashboard. Under the DSG the countries you export to also have to be named in the privacy policy._
+| Recht | DSGVO | Wie das Produkt es erfüllt |
+|-------|-------|----------------------------|
+| Auskunft / Kopie | Art. 15 | auf Anfrage beim Anbieter, der die Daten aus Supabase zusammenstellt |
+| Berichtigung | Art. 16 | auf Anfrage beim Anbieter, der in Supabase ändert |
+| Löschung | Art. 17 | auf Anfrage beim Anbieter: Das Löschen des Kontos entfernt Mitgliedschaft und Bildungsträger (PROJ-1 AC-12) |
+| Datenübertragbarkeit | Art. 20 | auf Anfrage beim Anbieter, als Export aus Supabase (CSV/JSON) |
+| Widerspruch | Art. 21 | auf Anfrage beim Anbieter (betrifft Login-Bremse und Bot-Prüfung, berechtigtes Interesse) |
 
-| Service | What it processes | Region | DPA signed | Outside the adequate countries? |
-|---------|-------------------|--------|------------------|----------------|
-| _Supabase_ | _All application data_ | _eu-central-1 (Frankfurt)_ | _☐_ | _US company, EU hosting_ |
-| _Vercel_ | _Requests, logs_ | _..._ | _☐_ | _..._ |
-| _Sentry_ | _Error reports (scrubbed)_ | _..._ | _☐_ | _..._ |
+> Frist: **ein Kalendermonat** (Art. 12 Abs. 3 DSGVO), um zwei Monate verlängerbar bei komplexen Fällen, wenn die Person im ersten Monat informiert wird.
 
-## Data subject rights — how they are served
+## Offene Punkte
 
-_Which part of the app actually delivers each right. "By email, manually" is a valid answer for a small product; leaving it blank is not._
+- [ ] Verantwortlichen (Name, Anschrift) festlegen — vor dem Live-Gang
+- [ ] AVV mit Supabase akzeptieren (Organization Settings → Legal Documents), bevor echte personenbezogene Daten verarbeitet werden
+- [ ] Bot-Prüfdienst wählen (`/architecture` PROJ-1), Region bestimmen und AVV abschließen
+- [ ] Aufbewahrung des Supabase-Auth-Audit-Logs (enthält IP-Adressen) — nicht bestimmt
+- [ ] Kontaktweg für Betroffenenanfragen, Datenschutzerklärung und Impressum — beim Live-Gang (`docs/PRD.md` → Später)
 
-| Right | GDPR | DSG | How this product delivers it |
-|-------|------|-----|------------------------------|
-| Access / copy | Art. 15 | Art. 25 | _..._ |
-| Rectification | Art. 16 | Art. 32 | _..._ |
-| Erasure | Art. 17 | Art. 32 / Art. 6 Abs. 4 | _..._ |
-| Portability | Art. 20 | Art. 28 (narrower) | _..._ |
-| Objection | Art. 21 | Art. 30 Abs. 2 | _..._ |
+## Für einen Anwalt / Datenschutzbeauftragten
 
-> Deadline: **one calendar month** under the GDPR (Art. 12(3), extendable by two for complex cases if the person is told within the first), **30 days** under the DSG (Art. 25 Abs. 7).
-
-## Open points
-
-_What is still unresolved, and who resolves it. `/dsgvo` adds items here; they leave when they are actually done._
-
-- [ ] _e.g. AVV with Sentry not yet signed_
-- [ ] _e.g. Retention period for uploaded files never decided_
-
-## For a lawyer / data protection officer or advisor
-
-_Questions that need a human. Keep the context with each question so it can be asked without re-explaining the product._
-
-- _e.g. Our free tier keeps analytics data for 24 months on legitimate interest — is that defensible for a B2C product with no login requirement?_
+- Die Login- und Registrierungsseite lädt ein Skript eines Bot-Prüfdienstes (Drittanbieter), das IP-Adresse und Browser-Merkmale verarbeitet, um automatisierte Kontoanlagen und Passwort-Raten abzuwehren. Darf es ohne Einwilligung laden, weil es für den sicheren Betrieb unbedingt erforderlich ist (§ 25 Abs. 2 TDDDG)?
+- Mit PROJ-2 speichert die Lizenzzentrale E-Mail-Adressen von Teilnehmern, die ein Bildungsträger eingibt. Verarbeitet der Anbieter diese Adressen im Auftrag des Trägers (Auftragsverarbeitung, dann AVV mit jedem Träger) oder als eigener Verantwortlicher? Klären, sobald PROJ-2 spezifiziert ist.
 
 ---
 
-_Run `/dsgvo` to create the first version of this record, and again whenever a feature changes what personal data the product holds._
+_`/dsgvo` erneut ausführen, sobald ein Feature ändert, welche personenbezogenen Daten das Produkt hält._
