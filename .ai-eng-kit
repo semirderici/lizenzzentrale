@@ -1,0 +1,128 @@
+{
+  "version": "0.7.6",
+  "mode": "new",
+  "language": "de",
+  "agents": [
+    "claude"
+  ],
+  "memory": "CLAUDE.md",
+  "createdWith": "create-ai-eng-app",
+  "platform": "web",
+  "stack": {
+    "framework": "nextjs",
+    "backend": null,
+    "test": "vitest",
+    "e2e": "playwright",
+    "ui": "shadcn",
+    "deploy": null,
+    "packageManager": "npm"
+  },
+  "commands": {
+    "dev": "npm run dev",
+    "build": "npm run build",
+    "test": "npm test",
+    "lint": "npm run lint",
+    "check": "npm run check"
+  },
+  "checkLayers": [],
+  "probe": {
+    "kind": "http",
+    "baseUrl": "http://localhost:3000"
+  },
+  "layers": [],
+  "law": null,
+  "quality": null,
+  "featurePrefix": "PROJ",
+  "managed": {
+    ".claude/skills": [
+      "architecture",
+      "audit",
+      "build",
+      "cleanup",
+      "deploy",
+      "dsgvo",
+      "e2e-tests",
+      "help",
+      "init",
+      "map",
+      "qa",
+      "refactor",
+      "refine",
+      "reverse-spec",
+      "security-check",
+      "starter-kit-migration",
+      "tasks",
+      "verify-setup",
+      "write-spec"
+    ],
+    ".claude/rules": [
+      "general.md",
+      "security.md"
+    ],
+    ".claude/agents": [
+      "qa-engineer.md"
+    ],
+    "docs/production": [
+      "database-optimization.md",
+      "error-tracking.md",
+      "performance.md",
+      "rate-limiting.md",
+      "security-headers.md"
+    ],
+    "docs/stacks": [
+      "backend-supabase.md",
+      "deploy-hostinger.md",
+      "deploy-vercel.md",
+      "framework-nextjs.md",
+      "tests-vitest-playwright.md",
+      "ui-shadcn.md"
+    ],
+    "docs/law": [
+      "ai-act.md",
+      "dsg.md",
+      "gdpr.md"
+    ],
+    "docs/kit": [
+      "CHANGELOG.md"
+    ]
+  },
+  "hashes": {
+    ".claude/skills/architecture": "4b2925405a367cc8",
+    ".claude/skills/audit": "0136503de4db9b7d",
+    ".claude/skills/build": "52747294d23ea0bc",
+    ".claude/skills/cleanup": "95c21473d967dcda",
+    ".claude/skills/deploy": "520422ed92c39814",
+    ".claude/skills/dsgvo": "08a99f20ba62a7ee",
+    ".claude/skills/e2e-tests": "fe0f54758c495687",
+    ".claude/skills/help": "d7de17477314673b",
+    ".claude/skills/init": "2bf551486c48f388",
+    ".claude/skills/map": "328661bd5948c65b",
+    ".claude/skills/qa": "68951e29b05c449e",
+    ".claude/skills/refactor": "d24eb9274e1b718d",
+    ".claude/skills/refine": "596b6580d372ed5f",
+    ".claude/skills/reverse-spec": "4ddb374d1c44142e",
+    ".claude/skills/security-check": "dbd46e74d34182fc",
+    ".claude/skills/starter-kit-migration": "e1349ec1d5e9a4a8",
+    ".claude/skills/tasks": "6b83786bb1a00970",
+    ".claude/skills/verify-setup": "147fc5ed35c7159d",
+    ".claude/skills/write-spec": "a3f89f5b6cb1071d",
+    ".claude/rules/general.md": "d189f7c7d9d89be2",
+    ".claude/rules/security.md": "ddd99b4b1754878b",
+    ".claude/agents/qa-engineer.md": "e3a0da7b99e8922d",
+    "docs/production/database-optimization.md": "ea25a896ca251692",
+    "docs/production/error-tracking.md": "9a26ae3d0029ae96",
+    "docs/production/performance.md": "c592f2aa3f8eb761",
+    "docs/production/rate-limiting.md": "ae53c1276171f153",
+    "docs/production/security-headers.md": "e0d533266cc33ef2",
+    "docs/stacks/backend-supabase.md": "c00e54febe3d291c",
+    "docs/stacks/deploy-hostinger.md": "e695932a009c76fc",
+    "docs/stacks/deploy-vercel.md": "76675af7e1486260",
+    "docs/stacks/framework-nextjs.md": "9af58fdb104b9c34",
+    "docs/stacks/tests-vitest-playwright.md": "16b10381dfee170d",
+    "docs/stacks/ui-shadcn.md": "86c2202698f1a17f",
+    "docs/law/ai-act.md": "ab7a959b366afbff",
+    "docs/law/dsg.md": "8521b1d04b8aa0b1",
+    "docs/law/gdpr.md": "4669e4e2e2964833",
+    "docs/kit/CHANGELOG.md": "67b782f89d4626c2"
+  }
+}
