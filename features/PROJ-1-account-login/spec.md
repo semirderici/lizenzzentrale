@@ -97,4 +97,5 @@
 | Sitzung bis zum Abmelden | Bei Verwaltungstools üblich; Zeitlimits sind bei Supabase erst ab dem Pro-Tarif eingebaut. | 2026-10-21 |
 | Lizenzübersicht in PROJ-1 nur Rahmen + Platzhalter | Klare Grenze zu PROJ-2, das die Seite füllt, ohne PROJ-1 umzubauen. Das Startkontingent prüft `/qa` in der Datenbank. | 2026-10-21 |
 | Trägername nicht eindeutig | Sonst ließe sich ausspähen, welche Institute Kunden sind, und ein Trittbrettfahrer könnte den Namen eines echten Instituts blockieren. | 2026-10-21 |
+| Anmeldeversuche höchstens 24 Stunden aufbewahren | Deutlich länger als das 15-Minuten-Fenster der Bremse, damit sie zuverlässig zählt, aber kurz genug für Datensparsamkeit (Art. 5 Abs. 1 lit. e DSGVO). | 2026-10-21 |
 | Löschen und Ändern nur auf Anfrage beim Anbieter | Passt zu Haltung „lean“ und zum PRD (Anbieter verwaltet in Supabase); kein riskanter Löschknopf, der auch alle Teilnehmer-Lizenzen entfernt. | 2026-10-21 |
