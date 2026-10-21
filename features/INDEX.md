@@ -25,8 +25,11 @@
 
 | ID | Feature | Description | Status | Spec | Created |
 |----|---------|-------------|--------|------|---------|
+| PROJ-1 | Konto & Login | Verwalter registrieren ihren Bildungsträger mit E-Mail und Passwort, melden sich an und ab, sehen nur die Daten ihres eigenen Trägers und starten mit 5 Lizenzen. | Roadmap | — | 2026-10-21 |
+| PROJ-2 | Lizenzverwaltung | Verwalter sehen ihr Kontingent, weisen Teilnehmern per E-Mail-Adresse eine Lizenz zu und entziehen sie wieder, bei vollem Kontingent ist keine Zuweisung möglich. | Roadmap | — | 2026-10-21 |
+| PROJ-3 | Einladungs-E-Mail | Bei jeder Zuweisung bekommt der Teilnehmer automatisch eine Einladung über einen externen E-Mail-Dienst, der Versandstatus ist pro Lizenz sichtbar. | Roadmap | — | 2026-10-21 |
 
-**Build order:** _P0 (MVP): PROJ-1 → PROJ-2 · P1: PROJ-3 (needs PROJ-2) · P2: PROJ-4 (needs PROJ-2) — written by `/init`, kept current by `/refine`_
+**Build order:** P0 (MVP): PROJ-1 → PROJ-2 (braucht PROJ-1) → PROJ-3 (braucht PROJ-2)
 
 <!-- Add features above this line -->
 
@@ -36,4 +39,4 @@
 
 - _v1.0.0 · 2026-01-31 · https://app.example.com · PROJ-1, PROJ-2_
 
-## Next Available ID: PROJ-1
+## Next Available ID: PROJ-4

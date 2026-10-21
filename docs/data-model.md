@@ -1,38 +1,51 @@
-# Data Model
+# Datenmodell
 
-> The app-wide map of **what data this product stores and how it connects** — the shared blueprint every feature's tables conform to.
+> Die app-weite Karte **welche Daten das Produkt speichert und wie sie zusammenhängen**. Sie ist die gemeinsame Vorlage, an die sich die Tabellen jedes Features halten.
 >
-> - Created by `/init` (the first holistic pass: entities + relationships).
-> - Refined by `/architecture` as each feature is designed.
-> - **Altitude:** entities, relationships, and ownership live here (product-level, anyone can read them). Column types, indexes, and exact foreign keys are decided per feature in that feature's `design.md` — not here.
+> - Erstellt von `/init` als erster Gesamtentwurf mit Entitäten und Beziehungen.
+> - Verfeinert von `/architecture`, wenn ein Feature entworfen wird.
+> - **Ebene:** Hier stehen Entitäten, Beziehungen und Eigentum auf Produktebene. Spaltentypen, Indizes und exakte Fremdschlüssel entscheidet jedes Feature in seiner `design.md`, nicht hier. Die englischen Bezeichner in Klammern sind Vorschläge für den Code.
+> - **Übernahme in die Plattform:** Die Tabellen sollen später ohne Umbau in die Datenbank der E-Learning-Plattform wandern. Abgeglichen mit deren `docs/data-model.md` bei `/init` am 2026-10-21: Die Plattform hat bereits `profiles` (Lernende und Redakteure). Die Lizenzzentrale legt deshalb **kein eigenes `profiles`** an, und ihre Tabellennamen kollidieren nicht mit denen der Plattform.
 
-## Entities
+## Entitäten
 
-_Each entity is a kind of thing the app stores (a real-world noun). List the ones you know so far with a one-line purpose and who owns or can see it. No column types — just the thing and what it's for._
+| Entität | Was sie darstellt | Gehört / sichtbar für |
+|---------|-------------------|-----------------------|
+| Konto (Supabase Auth) | E-Mail-Adresse, Passwort und Sitzungen des Verwalters. Supabase Auth verwaltet das, nicht die App. | der Nutzer selbst |
+| Bildungsträger (`training_providers`) | ein Weiterbildungsinstitut mit Namen und **Kontingent** (Startwert 5 Lizenzen) | seine Verwalter lesen · den Namen setzt die Registrierung · das Kontingent ändert **nur der Anbieter** außerhalb der App (Supabase-Tabellenansicht), nie ein Verwalter |
+| Mitgliedschaft (`training_provider_members`) | welches Konto zu welchem Bildungsträger gehört, mit Rolle (heute nur „Verwalter“) | das Konto selbst · angelegt nur bei der Registrierung |
+| Lizenz (`licenses`) | eine vergebene Lizenz: E-Mail-Adresse des Teilnehmers und Zeitpunkt der Zuweisung. Später kommt der Verweis auf ein Lernkonto der Plattform dazu. | die Verwalter des eigenen Bildungsträgers: sehen, zuweisen, entziehen |
+| Einladung (`license_invitations`) | der Stand des Einladungsversands zu einer Lizenz: versendet oder fehlgeschlagen, wann, wie oft versucht | die Verwalter des eigenen Bildungsträgers lesen · geschrieben wird nur vom Server beim Versand |
 
-| Entity | What it represents | Owned by / who can see it |
-|--------|--------------------|---------------------------|
-| _profiles_ | _A user's account profile_ | _the user themselves_ |
-| _..._ | _..._ | _..._ |
+Was die Login-Bremse an Daten braucht (z. B. ein Protokoll der Anmeldeversuche), entscheidet `/architecture` für PROJ-1 und trägt es dann hier ein.
 
-## Relationships
+## Beziehungen
 
-_How the entities connect, in plain language. This is where coherence comes from — get the connections right once, up front._
+- Ein Konto gehört über seine Mitgliedschaft zu **genau einem** Bildungsträger. Ein Bildungsträger hat heute genau einen Verwalter. Die Mitgliedschaft erlaubt später mehrere, ohne Umbau.
+- Bei der Registrierung entstehen Bildungsträger und Mitgliedschaft gemeinsam. **Das Kontingent setzt die Datenbank** (Startwert 5), nie Daten, die der Nutzer bei der Registrierung mitschickt. Rechte kommen aus der Mitgliedschaft, nie aus dem Anmelde-Token.
+- Ein Bildungsträger hat viele Lizenzen, aber **höchstens so viele, wie sein Kontingent erlaubt**. Das prüft die Datenbank, nicht nur die Oberfläche.
+- „Frei“ ist keine eigene Zeile, sondern wird berechnet: Kontingent minus vergebene Lizenzen.
+- Dieselbe E-Mail-Adresse hat **pro Bildungsträger höchstens eine** Lizenz. Zwei verschiedene Bildungsträger dürfen dieselbe Person einladen.
+- Eine Lizenz hat höchstens eine Einladung, die den Stand des letzten Versands zeigt.
+- **Entziehen löscht die Lizenz samt Einladung.** Damit ist sie sofort wieder frei, und es bleiben keine Teilnehmer-Adressen liegen, die niemand mehr braucht (Datensparsamkeit).
+- Jede Zeile in `training_provider_members`, `licenses` und `license_invitations` gehört zu genau einem Bildungsträger. Row Level Security gibt Verwaltern nur die Zeilen ihres eigenen Trägers.
 
-- _A profile has many ..._
-- _Each ... belongs to exactly one ..._
-- _A ... can have many ..._
+### Später (Andockpunkte, nicht jetzt)
 
-## Diagram (optional)
+- Lizenz → Lernkonto (`profiles`) und Kursbelegung (`enrollments`) der Plattform.
+- Kontingent pro Kurs statt pro Bildungsträger, sobald es mehr als einen Kurs gibt.
+- **Lizenzprotokoll:** wer wann welche Lizenz bekommen und verloren hat. Es wird gebraucht, sobald die Regel gegen die Weitergabe von Lizenzen kommt (siehe `docs/PRD.md` → Später). Dann ändert sich auch „Entziehen löscht die Lizenz“: Eine genutzte Lizenz fällt nicht mehr ins Kontingent zurück, oder Lizenzen gelten zeitlich begrenzt.
 
-_A simple text sketch of the model, filled in as it firms up._
+## Diagramm
 
 ```
-profiles
-  └─ owns many ...
-        └─ has many ...
+Konto (Supabase Auth)
+ └─ Mitgliedschaft (Rolle: Verwalter)
+      └─ Bildungsträger (Name, Kontingent = 5)
+           └─ Lizenz (Teilnehmer-E-Mail)  … höchstens Kontingent viele
+                └─ Einladung (versendet / fehlgeschlagen)
 ```
 
 ---
 
-_This is a living document. When `/architecture` designs a feature that introduces or changes an entity, it updates this map first, so later features build against an accurate picture. Run `/init` to create the first version from your feature map._
+_Dies ist ein lebendes Dokument. Wenn `/architecture` ein Feature entwirft, das eine Entität einführt oder ändert, aktualisiert es zuerst diese Karte, damit spätere Features gegen ein genaues Bild bauen._
