@@ -19,7 +19,9 @@ Owner: **PROJ-1 Konto & Login.** PROJ-1 verlangt ausdrücklich den geschützten 
 | Lizenzübersicht (`/licenses`) | Kontingent sehen, Lizenzen zuweisen und entziehen, Versandstatus der Einladungen sehen | angemeldet | PROJ-2 (Inhalt), PROJ-3 (Versandstatus) |
 
 - Die Startadresse `/` leitet weiter: angemeldet zur Lizenzübersicht, abgemeldet zum Login.
-- Wer angemeldet `/login` oder `/register` aufruft, landet in der Lizenzübersicht. Wer abgemeldet `/licenses` aufruft, landet beim Login.
+- Wer angemeldet `/login` oder `/register` aufruft, landet in der Lizenzübersicht. Wer abgemeldet `/licenses` oder eine andere geschützte Adresse aufruft, landet beim Login mit dem Hinweis „Bitte melden Sie sich erneut an.“ (`/login?reason=session`).
+- Abmelden ist kein Bereich, sondern ein POST an `/sign-out`. Danach lädt der Browser `/login` komplett neu.
+- Alle Weiterleitungen passieren auf dem Server, bevor eine Seite gerendert wird. Geschützte Inhalte erscheinen nie, auch nicht kurz.
 
 ## Layout-Bereiche
 
@@ -41,19 +43,32 @@ Gilt für die Lizenzübersicht und jede spätere Seite im angemeldeten Bereich.
 
 ## Anmeldestatus
 
-- **Abgemeldet:** nur Anmelden und Registrieren erreichbar. Keine Navigation, sondern eine zentrierte Karte mit dem Namen „Lizenzzentrale“, dem Formular und einem Link zum jeweils anderen Formular („Noch kein Konto? Registrieren“ / „Schon registriert? Anmelden“).
+- **Abgemeldet:** nur Anmelden und Registrieren erreichbar. Keine Navigation, sondern eine zentrierte Karte mit dem Namen „Lizenzzentrale“, dem Formular und einem Link zum jeweils anderen Formular („Noch kein Konto? Registrieren“ / „Schon registriert? Anmelden“). Beide Formulare enthalten die Bot-Prüfung (Turnstile). Ihr Skript lädt nur auf diesen zwei Seiten, nie im angemeldeten Bereich.
 - **Angemeldet:** nur die Lizenzübersicht, im Rahmen mit Kopfzeile.
+- **Angemeldet, aber keinem Bildungsträger zugeordnet** (PROJ-1 EC-5): Kopfzeile ohne Trägernamen, „Abmelden“ bleibt. Im Inhalt steht nur die Hinweisbox „Ihr Konto ist keinem Bildungsträger zugeordnet. Bitte wenden Sie sich an den Anbieter.“, keine Seite eines Features.
 - **Rollen:** keine. Heute gibt es nur den Verwalter.
+
+## Regeln für jedes Feature im angemeldeten Bereich
+
+- **Jede Seite und jede Server Action** ruft den Wächter `requireTrainingProvider()` auf (`src/features/account/session.data.ts`). Das Tor (`src/proxy.ts`) allein reicht nie.
+  - Ohne Sitzung leitet der Wächter auf `/login?reason=session` weiter.
+  - Bei „nicht zugeordnet“ zeigt eine Seite nichts (die Hinweisbox kommt aus dem Rahmen), und eine Aktion bricht mit der Meldung aus EC-5 ab, ohne etwas zu lesen oder zu schreiben.
+  - Bei „zugeordnet“ liefert er den Bildungsträger (ID, Name, Kontingent). Der Träger einer Aktion kommt immer von hier, nie aus Daten, die der Browser mitschickt.
+- Seiten im angemeldeten Bereich werden immer dynamisch gerendert (kein Zwischenspeichern, `no-store`).
+- Die Sitzung liegt in HttpOnly-Cookies. Der Supabase-Client im Browser sieht sie nicht, also lesen und schreiben Features über den Server.
 
 ## Gemeinsame Bausteine
 
-Vorschlag, `/architecture` für PROJ-1 legt sie fest.
+Festgelegt von `/architecture` PROJ-1 (Details in `features/PROJ-1-account-login/design.md`).
 
 | Baustein | Datei | Zweck |
 |----------|-------|-------|
+| Tor | `src/proxy.ts` | frischt die Sitzung auf, leitet nach Anmeldestatus weiter (nur bei GET/HEAD) |
 | Rahmen abgemeldet | `src/app/(auth)/layout.tsx` | zentrierte Karte für Login und Registrierung |
-| Rahmen angemeldet | `src/app/(app)/layout.tsx` | geschützter Rahmen mit Anmelde-Prüfung und Kopfzeile |
-| Kopfzeile | `src/components/app-header.tsx` | „Lizenzzentrale“, Name des Bildungsträgers, Abmelden |
+| Rahmen angemeldet | `src/app/(app)/layout.tsx` | geschützter Rahmen mit Wächter und Kopfzeile, zeigt bei „nicht zugeordnet“ die Hinweisbox |
+| Kopfzeile | `src/components/app-header.tsx` | „Lizenzzentrale“, Name des Bildungsträgers (als Text, gekürzt), Abmelden. Bekommt den Namen als Wert und importiert nichts aus einem Feature. |
+| Abmelden | `src/app/sign-out/route.ts` | nur POST; beendet die Sitzung und leitet auf `/login` weiter (ohne Sitzung auf `/login?reason=session`) |
+| Wächter | `src/features/account/session.data.ts` | `getCurrentAdmin()` und `requireTrainingProvider()` für Rahmen, Seiten und Aktionen |
 
 ---
 

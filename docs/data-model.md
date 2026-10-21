@@ -13,11 +13,19 @@
 |---------|-------------------|-----------------------|
 | Konto (Supabase Auth) | E-Mail-Adresse, Passwort und Sitzungen des Verwalters. Supabase Auth verwaltet das, nicht die App. | der Nutzer selbst |
 | Bildungsträger (`training_providers`) | ein Weiterbildungsinstitut mit Namen und **Kontingent** (Startwert 5 Lizenzen) | seine Verwalter lesen · den Namen setzt die Registrierung · das Kontingent ändert **nur der Anbieter** außerhalb der App (Supabase-Tabellenansicht), nie ein Verwalter |
-| Mitgliedschaft (`training_provider_members`) | welches Konto zu welchem Bildungsträger gehört, mit Rolle (heute nur „Verwalter“) | das Konto selbst · angelegt nur bei der Registrierung |
+| Mitgliedschaft (`training_provider_members`) | welches Konto zu welchem Bildungsträger gehört, mit Rolle (heute nur „Verwalter“, im Code `admin`) | das Konto selbst liest seine eigene Zeile · angelegt nur bei der Registrierung, nie über die App geändert |
 | Lizenz (`licenses`) | eine vergebene Lizenz: E-Mail-Adresse des Teilnehmers und Zeitpunkt der Zuweisung. Später kommt der Verweis auf ein Lernkonto der Plattform dazu. | die Verwalter des eigenen Bildungsträgers: sehen, zuweisen, entziehen |
 | Einladung (`license_invitations`) | der Stand des Einladungsversands zu einer Lizenz: versendet oder fehlgeschlagen, wann, wie oft versucht | die Verwalter des eigenen Bildungsträgers lesen · geschrieben wird nur vom Server beim Versand |
 
-Was die Login-Bremse an Daten braucht (z. B. ein Protokoll der Anmeldeversuche), entscheidet `/architecture` für PROJ-1 und trägt es dann hier ein.
+### Nur für die eigenständige Lizenzzentrale (wandert nicht in die Plattform)
+
+Diese Entitäten gehören zum eigenen Login der Lizenzzentrale. In der Plattform übernimmt deren Login diese Aufgabe. Sie liegen im Schema `private`, das über die Daten-API nicht erreichbar ist, und tragen im Namen `license_center_`, damit sie dort nicht mit gleichartigen Objekten kollidieren (die Plattform hat z. B. schon `private.login_attempts`). Festgelegt von `/architecture` PROJ-1.
+
+| Entität | Was sie darstellt | Gehört / sichtbar für |
+|---------|-------------------|-----------------------|
+| Login-Versuch (`license_center_login_attempts`) | ein Anmeldeversuch, der bis zur Passwortprüfung kam: E-Mail-Adresse (auch ohne Konto), IP-Adresse, Zeitpunkt, Ergebnis | niemand über die App · nur der Server über eigene Datenbankfunktionen · gelöscht nach spätestens 24 Stunden oder mit dem Konto |
+| Login-Sperre (`license_center_login_lockouts`) | aktuelle oder letzte Sperre und Zählbeginn pro E-Mail-Adresse bzw. IP-Adresse | wie oben · gelöscht, sobald sie keine Wirkung mehr hat |
+| Registrierungsversuch (`license_center_registration_attempts`) | eine Registrierung, die bis zu Supabase kam: IP-Adresse, Zeitpunkt, Ergebnis (keine E-Mail-Adresse) | wie oben · gelöscht nach spätestens 24 Stunden |
 
 ## Beziehungen
 
@@ -29,6 +37,8 @@ Was die Login-Bremse an Daten braucht (z. B. ein Protokoll der Anmeldeversuche),
 - Eine Lizenz hat höchstens eine Einladung, die den Stand des letzten Versands zeigt.
 - **Entziehen löscht die Lizenz samt Einladung.** Damit ist sie sofort wieder frei, und es bleiben keine Teilnehmer-Adressen liegen, die niemand mehr braucht (Datensparsamkeit).
 - Jede Zeile in `training_provider_members`, `licenses` und `license_invitations` gehört zu genau einem Bildungsträger. Row Level Security gibt Verwaltern nur die Zeilen ihres eigenen Trägers.
+- **Löschen hängt an Konto und Träger (PROJ-1 AC-12):** Wird ein Konto gelöscht, fällt seine Mitgliedschaft weg. Geht dabei der letzte Verwalter eines Trägers, wird der Träger mitgelöscht, und mit ihm alles, was ihm gehört. Deshalb hängen `licenses` und `license_invitations` per Löschkaskade am Bildungsträger. Löscht der Anbieter nur den Träger, bleibt das Konto ohne Zuordnung.
+- Login-Versuche und Login-Sperren einer E-Mail-Adresse werden mit dem Konto dieser Adresse gelöscht. Einen Verweis von ihnen auf das Konto gibt es nicht, sie hängen nur an der Adresse.
 
 ### Später (Andockpunkte, nicht jetzt)
 
@@ -44,6 +54,9 @@ Konto (Supabase Auth)
       └─ Bildungsträger (Name, Kontingent = 5)
            └─ Lizenz (Teilnehmer-E-Mail)  … höchstens Kontingent viele
                 └─ Einladung (versendet / fehlgeschlagen)
+
+Nur Lizenzzentrale, Schema private, ohne Verweis auf ein Konto:
+ Login-Versuch · Login-Sperre · Registrierungsversuch   … höchstens 24 Stunden
 ```
 
 ---

@@ -82,6 +82,8 @@
 - [ ] Verantwortlicher (Name, Anschrift) für `docs/privacy.md` — vor dem Live-Gang festlegen.
 - [ ] Über welchen Kontaktweg verlangen Verwalter Auskunft, Änderung oder Löschung beim Anbieter? Kommt mit Datenschutzerklärung und Impressum beim Live-Gang.
 - [ ] Für einen Anwalt: Darf die Bot-Prüfung (Skript eines Drittanbieters) ohne Einwilligung laden, weil sie für die Sicherheit unbedingt erforderlich ist (§ 25 Abs. 2 TDDDG)? Vor dem Live-Gang klären.
+- [ ] **Für `/refine PROJ-1` vor `/tasks` (aus `/architecture`, 2026-10-21):** AC-2 nennt als Obergrenze „72 Zeichen“. Supabase nimmt aber höchstens 72 **Bytes** an, und Umlaute zählen doppelt. AC-2 so präzisieren: höchstens 72 Zeichen und höchstens 72 Bytes, mit eigener Meldung für den Byte-Fall (`design.md` → Eingaberegeln).
+- [ ] **Für `/refine PROJ-1` vor `/tasks` (Entscheidung des Betreibers, 2026-10-21):** Die Registrierungsbremse zählt auch Registrierungen, die auf eine schon registrierte Adresse treffen, damit sie das Ausprobieren von Adressen bremst (siehe Produktentscheidung „Klarer Hinweis bei bereits registrierter Adresse“). AC-8 so umformulieren: Gezählt werden innerhalb einer Stunde von derselben IP-Adresse die angelegten Bildungsträger und die Versuche mit einer schon registrierten Adresse, ab 5 wird abgelehnt.
 
 ## Decision Log
 
