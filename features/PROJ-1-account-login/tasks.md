@@ -44,8 +44,8 @@
 
 <!-- Bausteine ohne Abhängigkeit untereinander. Alle Dateisätze sind disjunkt, deshalb sind alle Aufgaben [P]. -->
 
-- [ ] T8 [user]  Turnstile-Testschlüssel eintragen  · where: `.env.local` → `NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA` und `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA` (Cloudflares offizielle Testschlüssel, bestehen immer)  · → AC-1, AC-4, AC-7
-- [ ] T9 [P]  Eingaberegeln und Meldungstexte  · files: src/features/account/account.schema.ts, src/features/account/account.schema.test.ts, src/features/account/account.rules.ts, src/features/account/account.rules.test.ts  · → AC-2, AC-3, AC-5, AC-6, AC-8, EC-3, EC-4, EC-5, EC-6, EC-8, EC-9
+- [x] T8 [user]  Turnstile-Testschlüssel eintragen  · where: `.env.local` → `NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA` und `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA` (Cloudflares offizielle Testschlüssel, bestehen immer)  · → AC-1, AC-4, AC-7
+- [x] T9 [P]  Eingaberegeln und Meldungstexte  · files: src/features/account/account.schema.ts, src/features/account/account.schema.test.ts, src/features/account/account.rules.ts, src/features/account/account.rules.test.ts  · → AC-2, AC-3, AC-5, AC-6, AC-8, EC-3, EC-4, EC-5, EC-6, EC-8, EC-9
   - Schema: ein Zod-Schema für Browser und Server, mit den Feldmeldungen aus design.md → Eingaberegeln.
     - Jedes Textfeld ist vorab auf 1.000 Zeichen begrenzt.
     - Trägername: Rand-Leerzeichen entfernen, dann 2 bis 100 Zeichen, gezählt wie `char_length`.
@@ -58,20 +58,20 @@
     - Restminuten aufgerundet, mindestens 1 („in 1 Minute“ / „in X Minuten“)
     - IP aus dem letzten gültigen Eintrag von `X-Forwarded-For`, sonst `0.0.0.0`, dazu die Angabe, ob die IP öffentlich ist
     - Ergebnis eines Ablaufs → Meldung
-- [ ] T10 [P]  Turnstile-Prüfung auf dem Server  · files: src/features/account/turnstile.integration.ts, src/features/account/turnstile.integration.test.ts  · → AC-7, EC-8
+- [x] T10 [P]  Turnstile-Prüfung auf dem Server  · files: src/features/account/turnstile.integration.ts, src/features/account/turnstile.integration.test.ts  · → AC-7, EC-8
   - `server-only`. Schickt das Token an Cloudflare und, wenn übergeben, die IP. Ob die IP mitgeht, entscheidet die Action mit der Regel aus T9. Das Ergebnis ist „bestanden“, „abgelehnt“ oder „Fehler“. Ein fehlendes Secret, keine Antwort oder eine unlesbare Antwort gelten als Fehler, nie als bestanden. Der Test bildet `fetch` nach.
-- [ ] T11 [P]  Supabase-Clients für den Server  · files: src/lib/supabase/admin.ts, src/lib/supabase/cookie-options.ts, src/lib/supabase/cookie-options.test.ts, src/lib/supabase/server.ts  · → AC-1, AC-4, AC-10
+- [x] T11 [P]  Supabase-Clients für den Server  · files: src/lib/supabase/admin.ts, src/lib/supabase/cookie-options.ts, src/lib/supabase/cookie-options.test.ts, src/lib/supabase/server.ts  · → AC-1, AC-4, AC-10
   - Admin-Client: `server-only`, mit dem Server-Schlüssel. Er speichert keine Sitzung und setzt keine Cookies. Benutzt wird er nur für die Bremsfunktionen, das Registrieren und die Passwortprüfung.
   - Cookie-Regeln: HttpOnly, SameSite=Lax, Secure außer über `http`. Die Lebensdauer bleibt, wie Supabase sie setzt, also dauerhaft. Der Server-Client übernimmt die Regeln, das Tor aus T22 auch.
-- [ ] T12 [P]  Design-Tokens und Wurzel-Layout  · files: src/app/globals.css, src/app/layout.tsx  · → AC-4, EC-10
+- [x] T12 [P]  Design-Tokens und Wurzel-Layout  · files: src/app/globals.css, src/app/layout.tsx  · → AC-4, EC-10
   - Die Werte aus `docs/design-system.md` nach `globals.css` übertragen (Auftrag dort unter „Umsetzung“): hell und dunkel nach der Einstellung des Geräts, Textrollen, die zusätzlichen Tokens im `@theme inline`-Block.
   - Wurzel-Layout: `lang="de"`, Inter über `next/font`, Titel „Lizenzzentrale“, Toaster (shadcn `sonner`). Kein Turnstile-Skript und keine Vorab-Verbindung zu Cloudflare.
-- [ ] T13 [P]  Next-Konfiguration  · files: next.config.ts  · → Technische Anforderungen (Sicherheit)
+- [x] T13 [P]  Next-Konfiguration  · files: next.config.ts  · → Technische Anforderungen (Sicherheit)
   - Protokoll der Server Functions aus, sonst schreibt `next dev` Passwörter in die Konsole. Dazu die vier Sicherheitsheader aus `.claude/rules/security.md`, kein `X-Powered-By` und `agentRules: false`. Details: design.md → Technische Entscheidungen.
-- [ ] T14 [P]  Bot-Prüfung im Browser  · files: package.json, package-lock.json, src/features/account/components/bot-check.tsx, src/features/account/components/bot-check.test.tsx  · → AC-7, EC-8
+- [x] T14 [P]  Bot-Prüfung im Browser  · files: package.json, package-lock.json, src/features/account/components/bot-check.tsx, src/features/account/components/bot-check.test.tsx  · → AC-7, EC-8
   - Paket `@marsidev/react-turnstile` installieren. Das Widget läuft im Modus Managed, auf Deutsch, im Farbschema des Geräts, in voller Breite und mit vorab reservierter Höhe. Ein abgelaufenes Token holt es selbst neu, und das Formular kann es zurücksetzen.
   - Token, Ablauf und Ladefehler meldet es an das Formular. Ladefehler sind: Das Skript lädt nicht, das Widget meldet einen Fehler, oder es ist nach 15 Sekunden nicht sichtbar. Den Text aus EC-8 setzt das Formular (T26, T27), damit das Bauteil nicht von T9 aus derselben Stufe abhängt.
-- [ ] T15 [P]  Kopfzeile  · files: src/components/app-header.tsx, src/components/app-header.test.tsx  · → AC-4, AC-10, EC-5, EC-10
+- [x] T15 [P]  Kopfzeile  · files: src/components/app-header.tsx, src/components/app-header.test.tsx  · → AC-4, AC-10, EC-5, EC-10
   - Links steht „Lizenzzentrale“. Rechts steht der Trägername als reiner Text in einer Zeile, mit „…“ gekürzt, der volle Name als Hinweistext. Für EC-5 gibt es die Kopfzeile auch ohne Namen.
   - „Abmelden“ ist ein Knopf in einem eigenen Formular, das per POST an `/sign-out` sendet. Er schrumpft nie, die Tippfläche ist mindestens 44 × 44 px.
   - Die Kopfzeile bekommt den Namen als Wert und importiert nichts aus `src/features`.

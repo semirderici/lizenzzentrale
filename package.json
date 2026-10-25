@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@marsidev/react-turnstile": "^1.6.3",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
@@ -51,8 +52,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.71.1",
-    "sonner": "^2.0.7",
     "server-only": "^0.0.1",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.3.5"
   },
@@ -66,13 +67,13 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/ui": "^4.1.2",
+    "dependency-cruiser": "^17.4.3",
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
     "jsdom": "^29.0.1",
     "postcss": "^8",
     "tailwindcss": "^4.1.18",
     "typescript": "^5",
-    "vitest": "^4.1.2",
-    "dependency-cruiser": "^17.4.3"
+    "vitest": "^4.1.2"
   }
 }

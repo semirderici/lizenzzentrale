@@ -3,14 +3,17 @@
 // The two NEXT_PUBLIC_ values come from the env file at call time; nothing here runs at build.
 import 'server-only'
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
+import { sessionCookieOptions } from './cookie-options'
 
 export async function createClient() {
   const cookieStore = await cookies()
+  const headerStore = await headers()
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: sessionCookieOptions(headerStore.get('x-forwarded-proto')),
       cookies: {
         getAll() {
           return cookieStore.getAll()
