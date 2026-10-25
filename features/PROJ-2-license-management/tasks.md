@@ -68,7 +68,7 @@
 
 <!-- Braucht Regeln, Schema und Datenzugriff aus Stufe 2. Alle Dateisätze sind disjunkt, deshalb sind alle Aufgaben [P]. -->
 
-- [ ] T5 [P]  Server Actions Zuweisen und Entziehen  · files: src/features/licenses/licenses.actions.ts, src/features/licenses/licenses.actions.test.ts  · → AC-4, AC-5, AC-6, AC-7, AC-8, AC-10, EC-1, EC-2, EC-3, EC-5, EC-7, EC-9, EC-10
+- [x] T5 [P]  Server Actions Zuweisen und Entziehen  · files: src/features/licenses/licenses.actions.ts, src/features/licenses/licenses.actions.test.ts  · → AC-4, AC-5, AC-6, AC-7, AC-8, AC-10, EC-1, EC-2, EC-3, EC-5, EC-7, EC-9, EC-10
   - `'use server'`. Der Träger kommt immer aus `requireTrainingProvider()` (`src/features/account/session.data.ts`), nie aus der Eingabe.
   - Beide Actions: abgemeldet → Weiterleitung auf `/login?reason=session`. Nicht zugeordnet → Ergebnis „nicht zugeordnet“, ohne etwas zu lesen oder zu schreiben (EC-7).
   - `assignLicense`: Schema auf dem Server (Feldfehler), dann `insertLicense`. Danach:
@@ -82,12 +82,12 @@
     - nicht gefunden → `refresh()`, Ergebnis „bereits entzogen“
     - Fehler → „Fehler“
   - Die Tests bilden Wächter, Datenmodul und `refresh` nach. Geprüft wird: jede Zeile oben, ein mitgeschickter Träger wird ignoriert, eine Eingabe am Formular vorbei mit ungültiger Adresse legt nichts an (AC-5).
-- [ ] T6 [P]  Kontingent-Anzeige  · files: src/features/licenses/components/quota-summary.tsx, src/features/licenses/components/quota-summary.test.tsx  · → AC-1, AC-7, AC-9, EC-4
+- [x] T6 [P]  Kontingent-Anzeige  · files: src/features/licenses/components/quota-summary.tsx, src/features/licenses/components/quota-summary.test.tsx  · → AC-1, AC-7, AC-9, EC-4
   - Bekommt den Zustand aus T2 als Wert. Karte (shadcn `card`) mit „X von Y Lizenzen vergeben“ (type-section, tabular-nums) und „Z frei“ (type-body).
   - Balken (shadcn `progress`): Anteil aus T2, Spur `--muted`, Füllung `--primary`. Für Screenreader heißt er „Vergebene Lizenzen“, und als Wert wird derselbe Text wie in der Anzeige vorgelesen.
   - Hinweis (shadcn `alert`, Standardvariante) nur, wenn keine Lizenz frei ist: „ausgeschöpft“ mit Info-Symbol, „überschritten“ mit Warnsymbol, mit der Hinweis-ID aus T2.
   - Tests: 2 von 5, 0 von 1 (Einzahl), 5 von 5, 0 von 0, 5 von 3.
-- [ ] T7 [P]  Lade- und Fehlerzustand der Seite  · files: src/features/licenses/components/licenses-load-error.tsx, src/features/licenses/components/licenses-load-error.test.tsx, src/features/licenses/components/licenses-skeleton.tsx, src/app/(app)/licenses/loading.tsx  · → EC-6, AC-1, AC-2
+- [x] T7 [P]  Lade- und Fehlerzustand der Seite  · files: src/features/licenses/components/licenses-load-error.tsx, src/features/licenses/components/licenses-load-error.test.tsx, src/features/licenses/components/licenses-skeleton.tsx, src/app/(app)/licenses/loading.tsx  · → EC-6, AC-1, AC-2
   - Ladefehler (Client): Hinweisbox „Die Lizenzen konnten nicht geladen werden.“ mit dem Knopf „Erneut versuchen“. Der Knopf lädt über den Router neu (`router.refresh()` in einer Transition), ohne den Browser neu zu laden, und ist dabei gesperrt.
   - Skeletons in der Form der Seite: Titel „Lizenzübersicht“, Skeleton der Hauptaktion, der Anzeige und drei Zeilen der Liste.
   - `loading.tsx` zeigt die Skeletons, solange `/licenses` lädt.
