@@ -13,11 +13,11 @@
 <!-- Fundament: Migrationen, Zugriffsregeln, Trigger, Bremsen. Läuft zuerst, weil alles andere auf dem Datenvertrag aufbaut.
      Bewusst OHNE [P]: T5–T7 schreiben zwar verschiedene Dateien, spielen ihre Migration aber per `supabase db push` in dieselbe gehostete Datenbank (Strategie `single`), und die Reihenfolge der Migrationen zählt. T6 nutzt das Testgerüst aus T5, T7 die Tabellen aus T6. Aus getrennten Arbeitskopien würden sich Pushes und Migrationshistorie gegenseitig stören. -->
 
-- [ ] T1 [user]  Supabase-CLI mit dem gehosteten Projekt verbinden  · where: Terminal → `supabase login`, dann `supabase link --project-ref <ref>` (fragt nach dem Datenbank-Passwort)  · → AC-1 … AC-13 (Voraussetzung für `supabase db push`)
-- [ ] T2 [user]  Server-Schlüssel eintragen  · where: `.env.local` → `SUPABASE_SERVICE_ROLE_KEY` = Supabase → Project Settings → API Keys → Secret key (`sb_secret_…`) oder der ältere `service_role`-Schlüssel. Nur für den Server, nie mit `NEXT_PUBLIC_`.  · → AC-1, AC-4, AC-6, AC-8
-- [ ] T3 [user]  Platzhalter der neuen Variablen dokumentieren  · where: `.env.local.example` (der Agent darf die Datei nicht bearbeiten) → `SUPABASE_SERVICE_ROLE_KEY=your-supabase-secret-key`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA`, `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`  · → AC-1, AC-4, AC-7
-- [ ] T4 [user]  Audit-Log nicht in die Datenbank schreiben  · where: Supabase → Authentication → Audit Logs → „Write audit logs to the database“ → **aus**  · → AC-12, AC-13
-- [ ] T5  Migration Bildungsträger & Mitgliedschaft, Testgerüst und Datenbanktests  · files: supabase/migrations/20261021120000_proj1_training_providers.sql, vitest.config.mts, src/test/supabase.ts, src/test/db/training-providers.test.ts  · → AC-1, AC-11, AC-12, EC-3, EC-5
+- [x] T1 [user]  Supabase-CLI mit dem gehosteten Projekt verbinden  · where: Terminal → `supabase login`, dann `supabase link --project-ref <ref>` (fragt nach dem Datenbank-Passwort)  · → AC-1 … AC-13 (Voraussetzung für `supabase db push`)
+- [x] T2 [user]  Server-Schlüssel eintragen  · where: `.env.local` → `SUPABASE_SERVICE_ROLE_KEY` = Supabase → Project Settings → API Keys → Secret key (`sb_secret_…`) oder der ältere `service_role`-Schlüssel. Nur für den Server, nie mit `NEXT_PUBLIC_`.  · → AC-1, AC-4, AC-6, AC-8
+- [x] T3 [user]  Platzhalter der neuen Variablen dokumentieren  · where: `.env.local.example` (der Agent darf die Datei nicht bearbeiten) → `SUPABASE_SERVICE_ROLE_KEY=your-supabase-secret-key`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA`, `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`  · → AC-1, AC-4, AC-7
+- [x] T4 [user]  Audit-Log nicht in die Datenbank schreiben  · where: Supabase → Authentication → Audit Logs → „Write audit logs to the database“ → **aus**  · → AC-12, AC-13
+- [x] T5  Migration Bildungsträger & Mitgliedschaft, Testgerüst und Datenbanktests  · files: supabase/migrations/20261021120000_proj1_training_providers.sql, vitest.config.mts, src/test/supabase.ts, src/test/db/training-providers.test.ts  · → AC-1, AC-11, AC-12, EC-3, EC-5
   - Migration: legt das Schema `private` an (über die Daten-API nicht erreichbar), weil die Trigger-Funktionen dort liegen. T6 nutzt es mit. Dazu `public.training_providers` (Kontingent Standard 5, mindestens 0; Name ohne Rand-Leerzeichen, 2 bis 100 Zeichen) und `public.training_provider_members` (`user_id` eindeutig, Rolle `admin`, Löschkaskaden zu Träger und Konto). RLS mit Leseregeln, alle Rechte für `anon` und `authenticated` entzogen und nur das Lesen zurückgegeben. Trigger `license_center_on_auth_user_created` (`private.license_center_handle_new_user`, übernimmt nur den Namen) und „letzter Verwalter weg“ (`private.delete_orphaned_training_provider`). Details: design.md → Datenmodell, Zugriffsregeln in der Datenbank, Trigger.
   - Testgerüst: `vitest.config.mts` lädt die Variablen aus `.env.local` für die Tests und macht `server-only` in Tests importierbar. `src/test/supabase.ts` legt Testkonten über den Admin-Client an und meldet sie auch über ihn an, weil das Supabase-CAPTCHA aus T18 den öffentlichen Schlüssel sperrt. Es liefert einen Client mit dem Zugriffstoken des Kontos und räumt danach alles weg. Datenbanktests laufen in der Umgebung `node`.
   - Tests:
@@ -26,7 +26,7 @@
     - A sieht nur eigene Zeilen, jeder Schreibversuch scheitert, ein abgemeldeter Besucher bekommt keine Zeilen.
     - Wird das Konto gelöscht, sind Mitgliedschaft und Träger weg.
     - Wird nur der Träger gelöscht, bleibt das Konto, und der Trigger verträgt das.
-- [ ] T6  Migration Login- und Registrierungsbremse mit Datenbanktests  · files: supabase/migrations/20261021120100_proj1_login_throttle.sql, src/test/db/throttle.test.ts  · → AC-6, AC-8, AC-12, EC-2, EC-4, EC-7
+- [x] T6  Migration Login- und Registrierungsbremse mit Datenbanktests  · files: supabase/migrations/20261021120100_proj1_login_throttle.sql, src/test/db/throttle.test.ts  · → AC-6, AC-8, AC-12, EC-2, EC-4, EC-7
   - Migration: die drei Tabellen in `private` (RLS an, keine Regeln) mit ihren Indizes. Die fünf Funktionen `license_center_begin_login`, `license_center_finish_login`, `license_center_begin_registration`, `license_center_finish_registration` und `license_center_email_registered`: security definer, leerer Suchpfad, aufrufbar nur von `service_role`. Dazu der Trigger `license_center_on_auth_user_deleted` (`private.license_center_forget_deleted_account`). Details: design.md → Login-Bremse im Detail, Registrierungsbremse.
   - Tests über den Admin-Client:
     - 5 Fehlversuche pro Adresse oder 20 pro IP sperren für 15 Minuten, auch für unbekannte Adressen.
@@ -36,7 +36,7 @@
     - Die Registrierungsbremse zählt `pending`, `success` und `duplicate`, aber nicht `error`.
     - `anon` und `authenticated` dürfen keine der Funktionen aufrufen.
     - Wird das Konto gelöscht, ist auch die Kontosperre weg.
-- [ ] T7  Migration Aufräumjob  · files: supabase/migrations/20261021120200_proj1_cleanup_job.sql  · → AC-13
+- [x] T7  Migration Aufräumjob  · files: supabase/migrations/20261021120200_proj1_cleanup_job.sql  · → AC-13
   - `pg_cron` einschalten. Die Funktion `private.license_center_cleanup` löscht Login-Versuche und Registrierungen, die älter als 23 Stunden sind, und Sperren ohne Wirkung. Der Job `license-center-cleanup` läuft stündlich, aufrufbar ist die Funktion nur vom Eigentümer. Details: design.md → Aufräumjob.
   - Kein automatischer Test, weil das Schema `private` über die API nicht erreichbar ist. Nachweis im SQL-Editor wie in design.md → Hinweise für `/qa`: zurückdatierte Einträge anlegen, Funktion aufrufen.
 
