@@ -36,10 +36,14 @@ Owner: **PROJ-1 Konto & Login.** PROJ-1 verlangt ausdrücklich den geschützten 
 Gilt für die Lizenzübersicht und jede spätere Seite im angemeldeten Bereich.
 
 - **Seitenkopf:** Titel (`type-title`), optional eine Unterzeile, die Hauptaktion rechts. Auf dem Smartphone steht die Hauptaktion in voller Breite darunter.
-- **Laden:** Skeletons nur im Inhaltsbereich, in der Form des späteren Inhalts. Die Kopfzeile bleibt stehen.
+- **Laden:** Skeletons nur im Inhaltsbereich, in der Form des späteren Inhalts, über eine `loading.tsx` neben der Seite. Die Kopfzeile bleibt stehen.
 - **Leer:** gedämpftes Symbol, ein Satz und der nächste Schritt (z. B. „Noch keine Lizenz vergeben. Weisen Sie die erste zu.“).
-- **Fehler beim Laden:** Hinweisbox (shadcn `alert`) im Inhalt mit „Erneut versuchen“, nie eine leere Seite.
+- **Fehler beim Laden:** Hinweisbox (shadcn `alert`) im Inhalt mit „Erneut versuchen“, nie eine leere Seite. Die Seite fängt Ladefehler ihrer eigenen Daten selbst ab, „Erneut versuchen“ lädt über den Router neu, ohne den Browser neu zu laden (seit PROJ-2). Fehler im Wächter des Rahmens sind PROJ-1 BUG-4.
 - **Rückmeldungen:** Toasts (`sonner`) für Erfolg und Fehler einer Aktion.
+- **Aktionen mit Eingabe** öffnen einen Dialog (shadcn `dialog`). Was der Verwalter beheben oder wiederholen kann (Feldfehler, keine Verbindung), steht im Dialog, die Eingabe bleibt stehen. Ein Ergebnis (Erfolg oder endgültige Ablehnung) meldet ein Toast, und der Dialog schließt. Während des Sendens sind die Knöpfe gesperrt, und der Dialog schließt erst nach der Antwort (seit PROJ-2).
+- **Destruktive Aktionen** nur mit Bestätigungsdialog (shadcn `alert-dialog`). Beim Öffnen hat „Abbrechen“ den Fokus (seit PROJ-2).
+- **Listen** stehen ab `md` als Tabelle (shadcn `table`), darunter als eine Karte pro Eintrag, ohne seitliches Scrollen (seit PROJ-2).
+- **Nach einer Aktion** zeigt die Seite ohne Neuladen den aktuellen Stand: Die Server Action frischt die Seite auf (`refresh()` aus `next/cache`), Zahlen und Listen kommen immer aus der Datenbank (seit PROJ-2).
 
 ## Anmeldestatus
 
@@ -69,6 +73,7 @@ Festgelegt von `/architecture` PROJ-1 (Details in `features/PROJ-1-account-login
 | Kopfzeile | `src/components/app-header.tsx` | „Lizenzzentrale“, Name des Bildungsträgers (als Text, gekürzt), Abmelden. Bekommt den Namen als Wert und importiert nichts aus einem Feature. |
 | Abmelden | `src/app/sign-out/route.ts` | nur POST; beendet die Sitzung und leitet auf `/login` weiter (ohne Sitzung auf `/login?reason=session`) |
 | Wächter | `src/features/account/session.data.ts` | `getCurrentAdmin()` und `requireTrainingProvider()` für Rahmen, Seiten und Aktionen |
+| Rückmeldungen in Formularen | `src/components/form-feedback.tsx` | Feldfehler mit Symbol, Formular-Hinweisbox, Erkennen der Weiterleitung nach einer Action und des Verbindungsfehlers. Gebaut von PROJ-1, von PROJ-2 aus `src/features/account/components/` hierher verschoben, damit Login, Registrierung und die Dialoge von PROJ-2 dieselben Teile nutzen. Importiert nichts aus einem Feature. |
 
 ---
 

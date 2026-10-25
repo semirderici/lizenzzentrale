@@ -14,7 +14,7 @@
 | Konto (Supabase Auth) | E-Mail-Adresse, Passwort und Sitzungen des Verwalters. Supabase Auth verwaltet das, nicht die App. | der Nutzer selbst |
 | Bildungsträger (`training_providers`) | ein Weiterbildungsinstitut mit Namen und **Kontingent** (Startwert 5 Lizenzen) | seine Verwalter lesen · den Namen setzt die Registrierung · das Kontingent ändert **nur der Anbieter** außerhalb der App (Supabase-Tabellenansicht), nie ein Verwalter |
 | Mitgliedschaft (`training_provider_members`) | welches Konto zu welchem Bildungsträger gehört, mit Rolle (heute nur „Verwalter“, im Code `admin`) | das Konto selbst liest seine eigene Zeile · angelegt nur bei der Registrierung, nie über die App geändert |
-| Lizenz (`licenses`) | eine vergebene Lizenz: E-Mail-Adresse des Teilnehmers und Zeitpunkt der Zuweisung. Später kommt der Verweis auf ein Lernkonto der Plattform dazu. | die Verwalter des eigenen Bildungsträgers: sehen, zuweisen, entziehen |
+| Lizenz (`licenses`) | eine vergebene Lizenz: E-Mail-Adresse des Teilnehmers (ohne Leerzeichen, kleingeschrieben) und Zeitpunkt der Zuweisung, sonst nichts. Sie wird nie geändert, nur angelegt und gelöscht. Später kommt der Verweis auf ein Lernkonto der Plattform dazu. Festgelegt von `/architecture` PROJ-2. | die Verwalter des eigenen Bildungsträgers: sehen, zuweisen, entziehen |
 | Einladung (`license_invitations`) | der Stand des Einladungsversands zu einer Lizenz: versendet oder fehlgeschlagen, wann, wie oft versucht | die Verwalter des eigenen Bildungsträgers lesen · geschrieben wird nur vom Server beim Versand |
 
 ### Nur für die eigenständige Lizenzzentrale (wandert nicht in die Plattform)
@@ -31,9 +31,9 @@ Diese Entitäten gehören zum eigenen Login der Lizenzzentrale. In der Plattform
 
 - Ein Konto gehört über seine Mitgliedschaft zu **genau einem** Bildungsträger. Ein Bildungsträger hat heute genau einen Verwalter. Die Mitgliedschaft erlaubt später mehrere, ohne Umbau.
 - Bei der Registrierung entstehen Bildungsträger und Mitgliedschaft gemeinsam. **Das Kontingent setzt die Datenbank** (Startwert 5), nie Daten, die der Nutzer bei der Registrierung mitschickt. Rechte kommen aus der Mitgliedschaft, nie aus dem Anmelde-Token.
-- Ein Bildungsträger hat viele Lizenzen, aber **höchstens so viele, wie sein Kontingent erlaubt**. Das prüft die Datenbank, nicht nur die Oberfläche.
-- „Frei“ ist keine eigene Zeile, sondern wird berechnet: Kontingent minus vergebene Lizenzen.
-- Dieselbe E-Mail-Adresse hat **pro Bildungsträger höchstens eine** Lizenz. Zwei verschiedene Bildungsträger dürfen dieselbe Person einladen.
+- Ein Bildungsträger hat viele Lizenzen, aber **höchstens so viele, wie sein Kontingent erlaubt**. Das prüft die Datenbank beim Anlegen, auch bei gleichzeitigen Anfragen, nicht nur die Oberfläche. Senkt der Anbieter das Kontingent unter die Zahl der vergebenen Lizenzen, bleiben diese bestehen; neue gibt es erst wieder, wenn eine frei ist (PROJ-2).
+- „Frei“ ist keine eigene Zeile, sondern wird berechnet: Kontingent minus vergebene Lizenzen, mindestens 0.
+- Dieselbe E-Mail-Adresse hat **pro Bildungsträger höchstens eine** Lizenz, unabhängig von Groß- und Kleinschreibung. Zwei verschiedene Bildungsträger dürfen dieselbe Person einladen, und keiner erfährt vom anderen.
 - Eine Lizenz hat höchstens eine Einladung, die den Stand des letzten Versands zeigt.
 - **Entziehen löscht die Lizenz samt Einladung.** Damit ist sie sofort wieder frei, und es bleiben keine Teilnehmer-Adressen liegen, die niemand mehr braucht (Datensparsamkeit).
 - Jede Zeile in `training_provider_members`, `licenses` und `license_invitations` gehört zu genau einem Bildungsträger. Row Level Security gibt Verwaltern nur die Zeilen ihres eigenen Trägers.
@@ -42,7 +42,7 @@ Diese Entitäten gehören zum eigenen Login der Lizenzzentrale. In der Plattform
 
 ### Später (Andockpunkte, nicht jetzt)
 
-- Lizenz → Lernkonto (`profiles`) und Kursbelegung (`enrollments`) der Plattform.
+- Lizenz → Lernkonto (`profiles`) und Kursbelegung (`enrollments`) der Plattform. Der Verweis kommt als zusätzliches, optionales Feld an die Lizenz, in der Plattform wie bei `enrollments` als `user_id`. Am Rest der Lizenz ändert sich dafür nichts.
 - Kontingent pro Kurs statt pro Bildungsträger, sobald es mehr als einen Kurs gibt.
 - **Lizenzprotokoll:** wer wann welche Lizenz bekommen und verloren hat. Es wird gebraucht, sobald die Regel gegen die Weitergabe von Lizenzen kommt (siehe `docs/PRD.md` → Später). Dann ändert sich auch „Entziehen löscht die Lizenz“: Eine genutzte Lizenz fällt nicht mehr ins Kontingent zurück, oder Lizenzen gelten zeitlich begrenzt.
 
