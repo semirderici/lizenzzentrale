@@ -108,15 +108,15 @@
 
 <!-- Braucht die Server-Bausteine aus Stufe 2 und 3. Alle Dateisätze sind disjunkt, deshalb sind alle Aufgaben [P]. -->
 
-- [ ] T23 [P]  Server Actions `register` und `login`  · files: src/features/account/account.actions.ts, src/features/account/account.actions.test.ts  · → AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, EC-1, EC-2, EC-3, EC-4, EC-7
+- [x] T23 [P]  Server Actions `register` und `login`  · files: src/features/account/account.actions.ts, src/features/account/account.actions.test.ts  · → AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, EC-1, EC-2, EC-3, EC-4, EC-7
   - `register`: Eingaben → Bot-Prüfung → Registrierungsbremse → Supabase → Ergebnis. Bei einem unklaren Fehler fragt der Server `license_center_email_registered`, damit der Verlierer aus EC-2 die Meldung aus AC-3 sieht. Jeder Versuch wird mit seinem Ergebnis abgeschlossen. Keine Mindestantwortzeit.
   - `login`: Ist das Passwort länger als 72 Zeichen oder 72 Bytes, kommt die Meldung aus AC-5, ohne Bot-Prüfung, Bremse und Zählung. Sonst: Bot-Prüfung → Login-Bremse → Passwortprüfung → `license_center_finish_login`. Jede Antwort außer dem Erfolg kommt frühestens 1 Sekunde nach dem Eingang.
   - Bei Erfolg leiten beide auf `/licenses` weiter. Die IP kommt nach der Regel aus T9 und geht nur an Cloudflare, wenn sie öffentlich ist. Die Tests bilden die Bausteine nach und arbeiten mit künstlicher Zeit.
-- [ ] T24 [P]  Abmelden  · files: src/app/sign-out/route.ts, src/app/sign-out/route.test.ts  · → AC-10, EC-6
+- [x] T24 [P]  Abmelden  · files: src/app/sign-out/route.ts, src/app/sign-out/route.test.ts  · → AC-10, EC-6
   - Nur POST, andere Methoden → 405.
   - Mit Sitzung: abmelden mit Scope `local`, Cookies löschen, 303 auf `/login`.
   - Ohne Sitzung: 303 auf `/login?reason=session`.
-- [ ] T25 [P]  Angemeldeter Bereich  · files: src/app/(app)/layout.tsx, src/app/(app)/licenses/page.tsx, src/features/account/components/unassigned-notice.tsx, src/app/page.tsx  · → AC-4, AC-9, AC-10, EC-5
+- [x] T25 [P]  Angemeldeter Bereich  · files: src/app/(app)/layout.tsx, src/app/(app)/licenses/page.tsx, src/features/account/components/unassigned-notice.tsx, src/app/page.tsx  · → AC-4, AC-9, AC-10, EC-5
   - Der Rahmen `(app)` ruft den Wächter auf und zeigt die Kopfzeile mit dem Trägernamen. Bei „nicht zugeordnet“ zeigt er die Kopfzeile ohne Namen und nur die Hinweisbox aus EC-5.
   - `/licenses` ruft den Wächter ebenfalls auf und zeigt den Titel „Lizenzübersicht“ (type-title) und den Platzhaltersatz. Seitentitel: „Lizenzübersicht – Lizenzzentrale“.
   - Alles wird dynamisch gerendert (`no-store`).
