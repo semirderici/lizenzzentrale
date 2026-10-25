@@ -13,7 +13,7 @@
 <!-- Fundament: Tabelle, Zugriffsregeln, Trigger. Läuft zuerst, weil alles andere auf dem Datenvertrag aufbaut.
      Nur eine Aufgabe, also nur ein `supabase db push` in die gehostete Datenbank (Strategie `single`). -->
 
-- [ ] T1  Migration Lizenzen mit Trigger und Datenbanktests  · files: supabase/migrations/20261025120000_proj2_licenses.sql, src/test/db/licenses.test.ts  · → AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, EC-1, EC-2, EC-10
+- [x] T1  Migration Lizenzen mit Trigger und Datenbanktests  · files: supabase/migrations/20261025120000_proj2_licenses.sql, src/test/db/licenses.test.ts  · → AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, EC-1, EC-2, EC-10
   - Migration:
     - Tabelle `public.licenses` mit genau vier Spalten (`id`, `training_provider_id`, `email`, `assigned_at`). Regel der Spalte `email`, Eindeutigkeit (`training_provider_id`, `email`), Löschkaskade zum Träger, kein weiterer Index. Details: design.md → Datenmodell.
     - Rechte nach der Regel aus PROJ-1: erst alle entziehen, dann für `authenticated` Lesen, Löschen und Anlegen nur mit den Spalten `training_provider_id` und `email`. Kein Ändern, keine Rechte für `anon`. RLS ausdrücklich einschalten.
