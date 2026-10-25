@@ -1,284 +1,224 @@
 # QA-Testergebnisse: PROJ-1 Konto & Login
 
-**Getestet:** 2026-10-25
-**App-URL:** http://localhost:3000 (`probe.kind: http`, `npm run dev`, einmal vom QA-Verantwortlichen gestartet)
-**Tester:** QA Engineer (KI). Vier unabhängige `qa-engineer`-Prüfer ohne Build-Kontext: Abnahme Teil 1 (AC-1 bis AC-8, EC-1 bis EC-4, EC-7 bis EC-9), Abnahme Teil 2 (AC-9 bis AC-13, EC-5, EC-6, EC-10), Security, Regression. Zusammengeführt von der `/qa`-Sitzung.
-**Umfang:** `full` (erster `/qa`-Lauf), Branch `feat/PROJ-1-account-login` auf Commit `9c23375`
+**Getestet:** 2026-10-25 (zweiter `/qa`-Lauf, Re-Verifikation nach dem Bugfix von BUG-1 und BUG-2)
+**App-URL:** http://localhost:3001. Gestartet mit `npm run dev` als `next dev -p 3001`, einmal vom QA-Verantwortlichen. Port 3000 aus `probe.baseUrl` war von einem anderen Projekt belegt.
+**Tester:** QA Engineer (KI). Ein unabhängiger `qa-engineer`-Prüfer ohne Build-Kontext, mit allen drei Bereichen nacheinander: Abnahme → Security → Regression. Zusammengeführt von der `/qa`-Sitzung.
+**Umfang:** Re-Verifikation, `git diff --stat ec65f07..HEAD` (ec65f07 = Commit des ersten Berichts). Branch `feat/PROJ-1-account-login` auf Commit `c926e20`.
+- **Produktionscode:** nur `src/features/account/account.actions.ts`, dort nur `visitorIp` (Zeilen 68–76).
+- **Außerdem geändert:** `.env.local.example` (+1 Zeile, Inhalt nicht gelesen), `README.md`, `design.md`, `tasks.md`, die Tests `account.actions.test.ts` und `auth.data.test.ts`.
+- **Unverändert:** `supabase/`, `src/lib`, `src/proxy.ts`, `src/app`, `src/components`, `src/features/account/components`, `account.schema.ts`. Beleg: `git diff --stat ec65f07..HEAD -- <diese Pfade>` ist leer.
+- **Ein Prüfer statt drei:** Geändert ist eine einzige Produktionsdatei. Sie wird nur von PROJ-1 genutzt, und kein Nachbar-Feature ist deployt. Außerdem teilen sich ohne Proxy alle Anfragen eine IP-Bremse. Parallele Prüfer hätten sich gegenseitig gesperrt.
 
-> Legende: `[x]` in diesem Lauf geprüft (mit Beleg) · `[ ] BUG` als fehlerhaft geprüft · `[!] NOT VERIFIED` in diesem Lauf nicht prüfbar (mit Grund)
+> Legende:
+> - `[x]` in diesem Lauf geprüft (mit Beleg)
+> - `[ ] BUG` als fehlerhaft geprüft
+> - `[!] NOT VERIFIED` in diesem Lauf nicht prüfbar (mit Grund)
+> - `[=]` übernommen aus dem Lauf vom 2026-10-25 (Commit `ec65f07`), in diesem Lauf nicht erneut geprüft, weil die Diff den Code dafür nicht berührt
 
 **So wurde geprüft:**
-- **Server Actions:** per HTTP direkt aufgerufen, am Formular vorbei (`Next-Action`-Kopf, IDs aus `.next/dev/server/server-reference-manifest.json`).
+- **Server Actions:** per HTTP direkt aufgerufen, am Formular vorbei. Kopf `Next-Action`, IDs aus `.next/dev/server/server-reference-manifest.json`.
 - **Datenbank:** `env -u SUPABASE_ACCESS_TOKEN supabase db query --linked`.
-- **Direkte Datenbank-Schnittstelle:** `/rest/v1/` und `/auth/v1/`, mit dem öffentlichen Schlüssel und dem Token eigener Testkonten.
-- **Bot-Prüfung:** Cloudflares Turnstile-Testschlüssel (bestehen immer), Dummy-Token `XXXX.DUMMY.TOKEN.XXXX`.
-- **Aufräumen:** Alle Testkonten (`qa-*@lizenzzentrale-test.de`) sind wieder gelöscht. Die Bremsdaten der Tests räumt der stündliche Job ab. Sie stammen aus den IP-Bereichen 192.0.2.0/24, 198.51.100.0/24, 198.18.0.0/24 und 203.0.113.0/24.
+- **Bot-Prüfung:** Cloudflares Turnstile-Testschlüssel (bestehen immer).
+- **Startzustand:** Unter `0.0.0.0` gab es weder Login-Versuche noch Registrierungen noch eine IP-Sperre. Das Audit-Log hatte 0 Zeilen.
+- **Bremsdaten:** Ohne Proxy zählen alle Anfragen unter `0.0.0.0`. Zwischen den Testblöcken wurden deshalb die eigenen Zeilen gelöscht, wie `design.md` → Teststrategie es vorsieht.
+- **Aufräumen:**
+  - Die Testkonten `qa-r1-1025@…` und `qa-r4-1025@…` sind per `delete from auth.users` gelöscht, danach gibt es 0 Konten mit `qa-%`.
+  - Die eigenen Bremszeilen sind gelöscht. Endstand unter `0.0.0.0`: 0 Login-Versuche, 0 Sperren, 0 Registrierungen.
+  - Das Audit-Log hat 0 Zeilen.
 
-**Suite-Lauf** (einmal vor den Prüfern, `npm test`): 16 Dateien, 416 Tests bestanden, 0 fehlgeschlagen. **Build** (`npm run build`): exit 0.
+**Suite-Lauf** (einmal vor dem Prüfer, `npm test`): 17 Dateien, 440 Tests bestanden, 0 fehlgeschlagen.
+**Weitere Läufe:**
+- Build (`npm run build`): exit 0. Die Diff berührt App-Code, deshalb lief er.
+- `npm run lint`: exit 0.
+- `npm run check:structure`: „106 modules scanned, 0 errors“.
+- **Migrationen:** übersprungen, unverändert seit 2026-10-25 (`git diff --stat ec65f07..HEAD -- supabase/` ist leer).
 
 ## Akzeptanzkriterien
 
 #### AC-1: Registrierung legt Konto, Träger mit 5 Lizenzen und Mitgliedschaft an, sofort angemeldet
-- [x] Registrierung mit den mitgeschickten Zusatzfeldern `licenseQuota:999`, `license_quota:999` und `role:"owner"`:
-  - Antwort: `x-action-redirect: /licenses;push` und 2 Sitzungs-Cookies.
-  - Datenbank: `license_quota=5`, `role=admin`, Name getrimmt, in den Metadaten nur `training_provider_name`.
-  - `GET /licenses` liefert 200.
-  - Beleg: Action-Aufruf und `supabase db query`. Spaltenstandard in `supabase/migrations/20261021120000_proj1_training_providers.sql:18`, der Trigger liest nur den Namen (`:87-92`).
-- [x] Sofort angemeldet, ohne Bestätigungsmail. Beleg: Sitzungs-Cookies in der Antwort; `/auth/v1/settings` meldet `mailer_autoconfirm:true` (Wirkung der `[user]`-Aufgabe T16).
+- [x] Registrierung mit der E-Mail `"  QA-R1-1025@Lizenzzentrale-Test.DE "` und den Zusatzfeldern `licenseQuota:999`, `license_quota:999`, `role:"owner"`:
+  - Antwort: `x-action-redirect: /licenses;push` und Sitzungs-Cookie.
+  - Datenbank: `license_quota=5`, `role=admin`, Name getrimmt, `email_confirmed_at` gesetzt, E-Mail klein.
+  - Der Versuch steht als `success` unter `0.0.0.0`.
+  - Beleg: Action-Aufruf und DB-Abfrage.
 
 #### AC-2: Ungültige Eingaben werden abgelehnt, mit Meldung am Feld
-- [x] 12 ungültige Anfragen am Formular vorbei liefern jeweils die Feldmeldung aus `design.md`. Bei mehreren Fehlern stehen alle Felder gleichzeitig. Angelegt wird nichts: 0 Konten, 0 Bremszeilen. Beleg: Action-Aufrufe von IP 203.0.113.30, danach DB-Abfrage. Die 12 Fälle:
-  - Name leer, nur aus Leerzeichen, nach dem Trimmen 1 Zeichen, 101 Zeichen
-  - E-Mail ungültig
-  - Passwort mit 7 Zeichen, mit 73 ASCII-Zeichen, mit 37×„ä“ (74 Bytes)
-  - Wiederholung weicht ab
-  - alle Felder falsch
-  - Felder fehlen
-  - Werte sind keine Zeichenketten
-- [x] Diese Grenzwerte werden angenommen:
-  - Name mit 2 und mit 100 Zeichen, 100 Emoji
-  - Passwort mit 8 Zeichen, mit 72 ASCII-Zeichen, mit 36×„ä“ (= 72 Bytes)
-  - E-Mail mit 254 Zeichen
-  - Eine E-Mail mit 255 Zeichen wird abgelehnt. Beleg: Action-Aufrufe.
-- [x] „Mindestens 8 Zeichen.“ steht schon vor der Eingabe unter dem Passwortfeld. Beleg: `curl /register`, Server-HTML direkt unter `name="password"`.
-- [!] NOT VERIFIED: dass Trägername und E-Mail im Browser ausgefüllt bleiben. Es gab keinen Browser. Belegt nur durch den Code (`src/features/account/components/register-form.tsx:46-50`) und die Komponententests (`register-form.test.tsx:103,158`, grün im Suite-Lauf).
+- [x] 5 ungültige Anfragen am Formular vorbei liefern Feldmeldungen. Es entsteht keine Registrierungszeile. Die 5 Fälle:
+  - Name nur aus Leerzeichen
+  - 4 Fehler zugleich (Name 1 Zeichen, E-Mail ungültig, Passwort 7 Zeichen, Wiederholung weicht ab), alle 4 Meldungen gleichzeitig
+  - Name 101 Zeichen und Passwort 37×„ä“ (74 Bytes)
+  - Passwort mit 73 ASCII-Zeichen
+  - falsche Typen bzw. `{"$ne":null}`
+  - Beleg: Action-Aufrufe, DB-Abfrage.
+- [=] Grenzwerte, die angenommen werden, und der Hinweis „Mindestens 8 Zeichen.“ unter dem Feld. Unverändert seit 2026-10-25, Schema und Formular sind nicht in der Diff.
+- [!] NOT VERIFIED: dass Trägername und E-Mail im Browser ausgefüllt bleiben. Es gab keinen Browser. Belegt nur durch den Code (`register-form.tsx:46-50`) und die Komponententests im Suite-Lauf.
 
 #### AC-3: Schon registrierte Adresse
-- [x] Zweite Registrierung mit derselben Adresse in Großbuchstaben:
-  - Meldung wortgleich, mit `loginLink:true`.
-  - Weiterhin 1 Konto, kein neuer Träger, Versuch als `duplicate` gespeichert.
-  - Beleg: Action-Aufruf und DB-Abfrage. Link „Zum Login“ in `register-form.tsx:134-141`.
+- [x] Das Duplikat in Großbuchstaben liefert wortgleich „Mit dieser E-Mail-Adresse ist bereits ein Konto registriert. Bitte melden Sie sich an.“ mit `loginLink:true`. Es bleibt bei 1 Konto, der Versuch ist als `duplicate` gespeichert. Beleg: Action-Aufruf und DB-Abfrage.
 
 #### AC-4: Anmelden und Lizenzübersicht
-- [x] Login mit E-Mail in Großbuchstaben, Leerzeichen am Rand und richtigem Passwort führt zu `/licenses;push` und setzt Cookies. `GET /licenses` zeigt:
+- [x] Login mit `"  QA-R1-1025@LIZENZZENTRALE-test.de "` liefert `/licenses;push` und ein Cookie. `curl -H Cookie … /licenses` liefert 200 mit:
   - Seitentitel „Lizenzübersicht – Lizenzzentrale“
-  - Kopfzeile mit „Lizenzzentrale“, dem Trägernamen als maskiertem Text und „Abmelden“ (`<form action="/sign-out" method="post">`)
-  - `<h1>Lizenzübersicht</h1>` und den Platzhaltersatz
-  - Beleg: Action-Aufruf, dann `curl -b … /licenses` (Abnahme Teil 1 und Regression).
+  - Kopfzeile mit „Lizenzzentrale“, dem Trägernamen und `<form action="/sign-out" method="post">` mit „Abmelden“
+  - `<h1>Lizenzübersicht</h1>` und dem Platzhaltersatz
+- Einschränkung unter Missbrauch: siehe BUG-9.
 
 #### AC-5: Gleiche Fehlermeldung für unbekannte Adresse und falsches Passwort
-- [x] Unbekannte Adresse (2×) und falsches Passwort zu einer bekannten Adresse (2×) liefern denselben Text „E-Mail-Adresse oder Passwort ist falsch.“. Beleg: Action-Aufrufe.
-- [x] Die Antwortzeiten sind vergleichbar: bekannte Adresse 1.047–1.052 ms, unbekannte 1.043–1.052 ms, gesperrte 1.043–1.053 ms. Mindestantwortzeit in `src/features/account/account.actions.ts:43,118-123`.
-- [x] Ein Passwort mit mehr als 72 Zeichen liefert dieselbe Meldung und erzeugt keinen Bremseintrag (0 Zeilen für IP 203.0.113.36).
+- [x] Zwei unbekannte Adressen und zweimal ein falsches Passwort zu einem bekannten Konto liefern denselben Text „E-Mail-Adresse oder Passwort ist falsch.“.
+- [x] Antwortzeiten: 1.019–1.045 ms bei einem Fehlschlag, 1.015–1.030 ms bei einer Sperre. Mindestantwortzeit in `src/features/account/account.actions.ts:43,124-129`.
+- [x] Ein Passwort aus 37×„ä“ liefert dieselbe Meldung und schreibt keine Bremszeile.
 
 #### AC-6: Login-Bremse (5 pro Adresse oder 20 pro IP in 15 Minuten, dann 15 Minuten Sperre)
-- [x] Sperre pro Adresse, echter Ablauf ohne nachgestellte Zeit:
-  - 5 Fehlversuche, danach das richtige Passwort von einer anderen IP → „… in 15 Minuten erneut.“
-  - Um 11:25 UTC lautet die Meldung „in 3 Minuten“.
-  - Um 11:27:25 UTC klappt die Anmeldung wieder.
-  - Beleg: Action-Aufrufe, `locked_until` in der DB.
-- [x] 22 falsche Passwörter gegen ein Konto: ab Versuch 6 gesperrt, auch mit dem richtigen Passwort, von einer anderen IP und in anderer Schreibweise.
-- [x] Eine unbekannte Adresse wird genauso nach 5 Fehlversuchen gesperrt, mit demselben Text.
-- [x] Gleichzeitige Versuche: Von 12 parallelen Fehlversuchen auf eine Adresse, abgeschickt von 12 IPs, kommen genau 5 durch. Garantie: Advisory Locks, und laufende Prüfungen (`pending`) zählen mit, `supabase/migrations/20261021120100_proj1_login_throttle.sql:96-136`.
-- [x] Sperre pro IP: Nach 20 Fehlversuchen mit verschiedenen Adressen von einer IP wird der 21. Versuch abgelehnt, auch mit richtigem Passwort.
-- [ ] **BUG-2:** Die Sperre pro IP lässt sich mit einem selbst gesetzten `X-Forwarded-For`-Kopf umgehen. Nach der Sperre von 192.0.2.30 kamen Versuche von .31, .32 und .33 wieder bis zur Passwortprüfung. In der DB stehen genau diese, vom Client gewählten IPs (vom QA-Verantwortlichen nachgezählt).
-- [ ] **BUG-8 (Low):** Im Pfad mit gleichzeitigen Versuchen nannten 7 von 12 Antworten „in 16 Minuten“. `design.md` legt für diesen Pfad 15 Minuten fest.
+- [x] **Sperre pro Adresse:** 5 Fehlversuche, jeweils mit anderem `X-Forwarded-For` (198.51.100.1–5). Der 6. Versuch hat das richtige Passwort, eine andere Schreibweise und wieder einen anderen Kopf. Er bekommt „Zu viele Anmeldeversuche. Bitte versuchen Sie es in 15 Minuten erneut.“, in der DB steht `locked_until` = jetzt + 15 Min.
+- [x] **Restzeit:** `locked_until` auf jetzt + 150 s gesetzt → „in 3 Minuten“. Das Sperrende wurde durch Zurückdatieren von `locked_until` und `count_from` simuliert, danach klappt der Login wieder.
+- [x] **Sperre pro IP:** Nach 20 Fehlversuchen ist auch ein anderes, ungesperrtes Konto mit dem richtigen Passwort gesperrt. Gesperrte Versuche speichern nichts: 31 Zeilen vorher, 31 nachher.
+- [x] **BUG-2 geschlossen:** Ein selbst gesetzter Kopf ändert die gezählte IP nicht mehr (Belege unter BUG-2).
+- [ ] **BUG-9 (Medium):** Die IP-Sperre zählt alle Clients gemeinsam statt „von derselben IP-Adresse“. 20 Fehlversuche von irgendwem sperren den Login für alle, auch von einer echt anderen Quelladresse.
+- [!] NOT VERIFIED: das echte Ablaufen der 15 Minuten. In diesem Lauf nur simuliert. Real geprüft im Lauf vom 2026-10-25, die Migrationen sind seitdem unverändert.
+- BUG-8 (Deferred) besteht weiter, siehe unten.
 
 #### AC-7: Ohne bestandene Bot-Prüfung keine Registrierung und kein Login
-- [x] Fehlt das Token, ist es leer oder 2.049 Zeichen lang, kommt bei Login und Registrierung die Meldung der Bot-Prüfung. Es entsteht kein Cookie, kein Konto und keine Bremszeile (IP 203.0.113.38: 0/0/0).
-- [x] Direkter Weg zu Supabase mit dem öffentlichen Schlüssel, am Formular vorbei: `/auth/v1/signup`, `/token?grant_type=password`, `/otp`, `/magiclink`, `/recover` und eine Telefon-Registrierung liefern 400 `captcha_failed`, ohne Token und mit Dummy-Token. Damit wirkt die `[user]`-Aufgabe T18.
-- [!] NOT VERIFIED: ein Token, das Cloudflare ablehnt. Das Test-Secret nimmt jedes Token an, auch `garbage-token-123`. Prüfbar ist das nur, wenn kurz `TURNSTILE_SECRET_KEY=2x0000000000000000000000000000000AA` in `.env.local` steht, und das durften die Prüfer nicht ändern. Belegt nur durch den Code (`src/features/account/turnstile.integration.ts:40-42`, `account.actions.ts:85,140`) und `turnstile.integration.test.ts` (grün).
-- [!] NOT VERIFIED (go-live): das eigene Turnstile-Widget (T29 `[user go-live]`). `/deploy` richtet es ein und prüft es. Das Test-Gegenstück ist oben geprüft.
+- [x] Ohne Token und mit leerem Token kommt bei Registrierung und Login „Die Sicherheitsprüfung ist fehlgeschlagen. Bitte versuchen Sie es erneut.“. Es entsteht kein Cookie, und zu `qa-nobot@…` gibt es 0 Login-Zeilen.
+- [=] Der direkte Weg zu Supabase mit dem öffentlichen Schlüssel endet mit `captcha_failed` (T18). Unverändert seit 2026-10-25, das ist eine Dashboard-Einstellung und kein Code in der Diff.
+- [!] NOT VERIFIED: ein Token, das Cloudflare ablehnt. Das Test-Secret nimmt jedes Token an. Prüfbar ist das nur, wenn kurz `TURNSTILE_SECRET_KEY=2x0000000000000000000000000000000AA` in `.env.local` steht.
+- [!] NOT VERIFIED (go-live): das eigene Turnstile-Widget (T29 `[user go-live]`).
 
 #### AC-8: Registrierungsbremse (5 pro IP und Stunde)
-- [x] Von einer IP:
-  - Ein Eingabefehler und eine Anfrage ohne Token zählen nicht.
-  - Nach 1 Erfolg und 4 Duplikaten bekommen der 6. Versuch (neue Adresse) und der 7. (Duplikat) „Zu viele Registrierungen. Bitte versuchen Sie es später erneut.“, und es entsteht nichts.
-  - Ein Serverfehler wird als `error` gespeichert und zählt nicht.
-  - Beleg: Action-Aufrufe von 203.0.113.20, DB-Abfrage.
-- [ ] **BUG-2:** Nach der Sperre von 192.0.2.40 kam die nächste Registrierung mit `X-Forwarded-For: 192.0.2.41` wieder bis zu Supabase.
+- [x] 1 Erfolg und 4 Duplikate, abgeschickt mit `X-Forwarded-For` 192.0.2.50/.51, mit `X-Real-IP`, mit `Forwarded` und mit einem `X-Forwarded-For` aus zwei Einträgen. Alle 5 stehen als `0.0.0.0` in der DB (IDs 218–222).
+- [x] Danach bekommen 4 weitere Versuche „Zu viele Registrierungen. Bitte versuchen Sie es später erneut.“, und es entsteht kein Konto. Die 4 Versuche:
+  - neue Adresse mit frischem Kopf
+  - alle Köpfe zugleich (XFF, X-Real-IP, CF-Connecting-IP, True-Client-IP, Forwarded)
+  - IPv6 im Kopf
+  - Duplikat ohne Kopf
+- [x] Ein Eingabefehler wird auch bei voller Bremse als Feldfehler beantwortet. Ein Serverfehler wird als `error` gespeichert (siehe EC-3).
+- [ ] **BUG-9 (Medium):** Die Bremse zählt alle Clients gemeinsam. 5 gezählte Registrierungen von irgendwem sperren eine Stunde lang jede neue Registrierung.
 
 #### AC-9: Weiterleitungen je nach Sitzung
-- [x] Abgemeldet:
-  - `/` → 307 `/login`.
-  - `/licenses`, `/LICENSES`, `/licenses%2F`, `/foo`, außerdem mit `HEAD`, mit `RSC: 1` und mit `x-middleware-subrequest` (CVE-2025-29927) → 307 `/login?reason=session`.
-  - Der Platzhaltersatz kommt in keiner dieser Antworten vor.
-  - Beleg: `curl -D -`. Tor in `src/proxy.ts:47-69`.
-- [x] `POST /licenses` ohne Sitzung (das Tor lässt POST durch) wird vom Wächter umgeleitet, ohne Inhalt. Wächter in `src/app/(app)/layout.tsx:14` und `src/app/(app)/licenses/page.tsx:14`.
-- [x] Angemeldet: `/`, `/login`, `/register` und `/login?reason=session` → 307 `/licenses`.
-- [x] Ein gefälschtes Sitzungs-Cookie (unsigniertes JWT mit `alg: none`) → 307. Grund: Das Tor fragt `getUser` am Auth-Server.
+- [=] Unverändert seit 2026-10-25 (`src/proxy.ts` und `src/app` nicht in der Diff).
+- [x] Stichprobe in diesem Lauf: abgemeldet führt `/` zu 307 `/login` und `/licenses` zu 307 `/login?reason=session`.
 
 #### AC-10: Sitzung bleibt bestehen, Abmelden beendet sie
-- [x] Die Sitzungs-Cookies sind dauerhaft: `Max-Age=34560000; HttpOnly; SameSite=lax`. Beleg: `Set-Cookie` nach Registrierung und Login, `src/lib/supabase/cookie-options.ts:13`.
-- [x] Auffrischen ausgelöst über ein zurückdatiertes `expires_at`: `GET /licenses` → 200 mit neuem dauerhaftem Cookie.
-- [x] Abmelden:
-  - `POST /sign-out` → 303 `/login`, beide Cookie-Teile mit `Max-Age=0`.
-  - Danach führt `/licenses` mit dem alten Cookie zu 307 `/login?reason=session`.
-  - `/licenses` antwortet mit `Cache-Control: no-store`.
-  - Beleg: `src/app/sign-out/route.ts:7-11`.
-- [x] Scope `local`: Eine zweite Sitzung desselben Kontos bleibt gültig. GET, PUT, PATCH, DELETE und OPTIONS auf `/sign-out` melden nicht ab (405).
-- [!] NOT VERIFIED: „Zurück“ im Browser (bfcache) und ein echter Neustart des Browsers. Es gab keinen Browser. Belegt sind nur `no-store` und dass ein neuer Abruf beim Login landet.
+- [=] Dauerhafte Cookies, Auffrischen, `no-store`, Scope `local`, 405 für andere Methoden. Unverändert seit 2026-10-25 (`src/lib`, `src/app` nicht in der Diff).
+- [x] Stichprobe in diesem Lauf: `POST /sign-out` → 303 `/login`. Das alte Cookie führt danach bei `/licenses` zu 307.
+- [!] NOT VERIFIED: „Zurück“ im Browser (bfcache) und ein echter Neustart des Browsers. Es gab keinen Browser.
 
 #### AC-11: Datentrennung zwischen Bildungsträgern
-- [x] Lesen über `/rest/v1` mit dem eigenen Token:
-  - A sieht genau 1 Träger und 1 Mitgliedschaft. Für die IDs von B kommt `[]`.
-  - B sieht genauso nur B, auch über eingebettete Joins.
-- [x] Schreibversuche als A enden alle mit 403 `42501`:
-  - Kontingent oder Name ändern, beim eigenen und beim fremden Träger
-  - einen Träger anlegen, Upsert des eigenen Trägers
-  - eine Mitgliedschaft anlegen, auf B umhängen, ihre Rolle ändern oder löschen
-  - die Bremsfunktionen per RPC aufrufen
-- [x] Abgemeldet (`anon`): 401 `42501`, keine Zeilen.
-- [x] In der Datenbank:
-  - RLS ist an.
-  - Policies gibt es nur für SELECT durch `authenticated`.
-  - Grants: `authenticated` nur SELECT, `anon` gar nichts.
-  - Das Schema `private` ist über die API nicht erreichbar (`PGRST106`), GraphQL ist aus.
-  - Beleg: `pg_policies`, `information_schema.role_table_grants`, `supabase/migrations/20261021120000_proj1_training_providers.sql:43-70`.
-- [x] Die eigenen `user_metadata` lassen sich über `PUT /auth/v1/user` ändern, haben aber keine Wirkung. Die Kopfzeile zeigt weiter den echten Namen, und `src` liest die Metadaten nirgends (`grep -rn "user_metadata\|raw_user_meta\|app_metadata" src` findet nur `src/test/supabase.ts`).
+- [=] Unverändert seit 2026-10-25. RLS, Policies, Grants und Migrationen sind nicht in der Diff.
 
 #### AC-12: Löschen eines Kontos durch den Anbieter
-- [x] Konto über die Admin-API gelöscht. Danach 0 Zeilen in `auth.users`, `identities`, `sessions`, `refresh_tokens`, `training_provider_members`, `training_providers` sowie bei Login-Versuchen und Sperren der Adresse. Beleg:
-  - Kaskade: `supabase/migrations/20261021120000_proj1_training_providers.sql:28,30`
-  - Trigger für den letzten Verwalter: `:109-130`
-  - Trigger beim Löschen eines Kontos: `supabase/migrations/20261021120100_proj1_login_throttle.sql:321-338`
-- [ ] **BUG-1:** In `auth.audit_log_entries` bleiben Zeilen mit Konto-ID und E-Mail-Adresse des gelöschten Kontos (5 Zeilen für das Testkonto).
+- [x] Beide Testkonten per `delete from auth.users` gelöscht. Danach gibt es 0 Konten, 0 Träger, 0 Mitgliedschaften, 0 Sitzungen, 0 Identities, 0 Login-Versuche und 0 Sperren der Adressen. Das Audit-Log hat 0 Zeilen.
+- [x] Den Weg über die Admin-API deckt der Gegenbeweis unter BUG-1 ab: `auth.admin.deleteUser` im Test erzeugt keine Zeile.
+- [x] **BUG-1 geschlossen** (Belege unter BUG-1).
 
 #### AC-13: Daten der Bremsen sind nach 24 Stunden gelöscht
-- [x] Der Job `license-center-cleanup` (`0 * * * *`) ist aktiv. Die Läufe um 10:00 und 11:00 UTC stehen auf `succeeded`. Beleg: `cron.job`, `cron.job_run_details`.
-- [x] Aufräumfunktion in `begin … rollback` mit zurückdatierten eigenen Zeilen:
-  - gelöscht: Einträge mit 23h01, 24h und 25h; Sperren ohne Wirkung
-  - behalten: Einträge mit 22h59; aktive Sperren
-  - Beleg: `supabase/migrations/20261021120200_proj1_cleanup_job.sql:6-22,30-34`. Ausführen darf nur der Eigentümer (`proacl {postgres=X/postgres}`).
+- [=] Unverändert seit 2026-10-25. Der Aufräumjob und die Migration sind nicht in der Diff.
 
 ## Edge Cases
 
 #### EC-1: Mehrfaches Absenden
-- [x] 4 gleichzeitige Registrierungen mit derselben neuen Adresse ergeben genau 1 Konto, 1 Träger und 1 Mitgliedschaft. Die anderen 3 bekommen die Meldung aus AC-3. Garantie: Unique-Index `users_email_partial_key` auf `auth.users(email)` und die Nachfrage in `src/features/account/account.actions.ts:107-111`.
-- [!] NOT VERIFIED: der gesperrte Knopf während des Sendens im Browser. Belegt nur durch den Code (`register-form.tsx:37,148`) und `register-form.test.tsx:134` (grün).
+- [x] 4 gleichzeitige Registrierungen mit derselben neuen Adresse ergeben 1 Konto, 1 Träger und 1 Mitgliedschaft (DB). 3 Antworten tragen die Meldung aus AC-3.
+- [!] NOT VERIFIED: der gesperrte Knopf während des Sendens im Browser. Belegt nur durch den Code (`register-form.tsx:37,148`) und die Komponententests.
 
 #### EC-2: Zwei Besucher gleichzeitig mit derselben Adresse
-- [x] 4 gleichzeitige Registrierungen von 4 verschiedenen IPs: genau 1 Erfolg. Die anderen sehen die Meldung aus AC-3 mit Login-Link, gespeichert als `duplicate`.
+- [x] Derselbe Lauf, mit 4 verschiedenen gefälschten IPs: genau 1 Erfolg (ID 224, `success`), 3× `duplicate` mit Login-Link.
 
 #### EC-3: Fehler mitten in der Registrierung
-- [x] Garantie „alles oder nichts“: `insert into auth.users` mit dem Namen `" x "` in einer zurückgerollten Transaktion bricht mit `23514 training_providers_name_check` aus dem Trigger ab, 0 Zeilen.
-- [x] Laufzeit: Ein Name mit NUL-Zeichen führt zu einem Fehler bei Supabase. Die Meldung lautet „Die Registrierung ist fehlgeschlagen. Bitte versuchen Sie es erneut.“, es gibt 0 Konten, der Versuch steht auf `error`. Siehe aber BUG-5.
-- [!] NOT VERIFIED: dass die Felder im Browser stehen bleiben. Belegt nur durch den Code (`register-form.tsx:46-50`) und die Tests (`register-form.test.tsx:158,200`).
+- [x] Ein Name mit `\u0000` liefert „Die Registrierung ist fehlgeschlagen. Bitte versuchen Sie es erneut.“. Es entsteht 0 Konto, der Versuch steht als `error`, verwaiste Konten mit `qa-%` gibt es 0.
+- [=] Die Garantie „alles oder nichts“ über den Trigger ist unverändert seit 2026-10-25 (Migrationen nicht in der Diff).
+- [!] NOT VERIFIED: dass die Felder im Browser stehen bleiben.
 
 #### EC-4: Großbuchstaben und Leerzeichen in der E-Mail-Adresse
-- [x] Registriert wird klein und getrimmt. Das Duplikat in Großbuchstaben wird erkannt, die Anmeldung mit Großbuchstaben und Leerzeichen klappt.
-- [x] Ein Fehlversuch steht kleingeschrieben in `license_center_login_attempts` und zählt mit.
-- [x] Das Passwort `" Pass wort-A1 "` wird nie verändert: getrimmt kommt die Meldung aus AC-5, exakt eingegeben klappt der Login.
+- [x] Registrierung und Login mit Großbuchstaben und Leerzeichen am Rand klappen und werden als dieselbe Adresse erkannt.
+- [x] Ein Fehlversuch mit „QA-R1-…“ zählt in der klein geschriebenen Kontosperre mit (AC-6, 6. Versuch).
+- [x] Passwörter werden nicht verändert: Ein falsches Passwort zählt als falsch (AC-5).
 
 #### EC-5: Konto ohne Bildungsträger
-- [x] Nur den eigenen Träger per SQL gelöscht: Konto bleibt, Mitgliedschaft 0. Danach zeigt `/licenses` (200):
-  - die Kopfzeile ohne Namen, mit „Abmelden“
-  - in `<main>` nur `role="alert"` mit dem Text aus EC-5, kein `h1`, kein Platzhalter
-  - `POST /sign-out` → 303 `/login`
-  - Beleg: `src/app/(app)/layout.tsx:19-23`, `src/features/account/session.data.ts:47-50`.
+- [=] Unverändert seit 2026-10-25 (`src/app/(app)/layout.tsx` und `session.data.ts` nicht in der Diff).
 
 #### EC-6: Abmelden in einem anderen Tab
-- [x] Mit dem alten Cookie nach dem Abmelden:
-  - `GET /licenses` und der RSC-Abruf → 307 `/login?reason=session`, ohne Fehlerseite.
-  - „Abmelden“ → 303 `/login?reason=session`.
-  - `/login?reason=session` zeigt „Bitte melden Sie sich erneut an.“
-- [x] Kein Hinweis bei `reason=SESSION`, `reason=<script>…` oder einem doppelten Parameter. Der Wert aus der Adresse erscheint nie. Beleg: `src/app/(auth)/login/page.tsx:15-20`.
+- [=] Unverändert seit 2026-10-25 (`src/proxy.ts`, `src/app` nicht in der Diff).
 
 #### EC-7: Erfolgreicher Login setzt den Zähler zurück
-- [x] 3 Fehlversuche, Erfolg, 2 Fehlversuche, dann das richtige Passwort → Erfolg. Ohne Zurücksetzen hätte es nach 5 Fehlversuchen eine Sperre gegeben. In der DB wird `count_from` neu gesetzt.
+- [x] 3 Fehlversuche, Erfolg, 2 Fehlversuche, Erfolg: keine Sperre (Login-Versuche IDs 901–907). In der DB wird `count_from` neu gesetzt.
 
 #### EC-8: Bot-Prüfung lädt nicht
-- [x] Server:
-  - Ohne Token kommt nichts durch (siehe AC-7).
-  - Fehlt das Secret oder ist Cloudflare nicht erreichbar, ist das Ergebnis „Fehler“, nie „bestanden“ (`src/features/account/turnstile.integration.ts:19,31-35`).
-  - Beide Knöpfe tragen im Server-HTML `disabled=""`.
-- [!] NOT VERIFIED: Meldung und gesperrter Knopf im Browser. Belegt nur durch den Code (`bot-check.tsx:63-71,103-110`) und die Tests (`bot-check.test.tsx:85-149`, `login-form.test.tsx:190`, `register-form.test.tsx:209`).
+- [x] Ohne Token kommt nichts durch (AC-7).
+- [x] Fehlt das Secret oder antwortet Cloudflare fehlerhaft, ist das Ergebnis `'error'` (`src/features/account/turnstile.integration.ts:19,31,34,37,39`).
+- [x] Im Server-HTML von `/login` und `/register` trägt der Knopf `disabled=""` (`login-form.tsx:110`, `register-form.tsx:148`).
+- [!] NOT VERIFIED: Meldung und gesperrter Knopf im Browser.
 
 #### EC-9: Keine Verbindung
-- [!] NOT VERIFIED: Ein Verbindungsabbruch braucht einen Browser. Belegt durch:
-  - den Code: `src/features/account/components/form-feedback.tsx:45-47`, `login-form.tsx:52-55`, `register-form.tsx:56-62`
-  - die Komponententests `login-form.test.tsx:168` und `register-form.test.tsx:190`
-  - die neuen Unit-Tests `form-feedback.test.tsx` aus diesem Lauf (siehe unten)
+- [!] NOT VERIFIED: Ein Verbindungsabbruch braucht einen Browser. Die Formulare sind nicht in der Diff. Belegt durch die Komponententests und `form-feedback.test.tsx` im Suite-Lauf.
 
 #### EC-10: Langer Trägername mit HTML
-- [x] Trägername mit 98 Zeichen, `<b>Träger & "Co"</b><script>alert(1)</script> …`:
-  - Im HTML maskiert, 0 Treffer für rohes `<script>alert(1)`.
-  - Die Kopfzeile hat `min-w-0 truncate` und `title` mit dem vollen Namen.
-  - „Abmelden“ hat `shrink-0`, der Knopf `h-11 min-w-11`.
-  - Beleg: `src/components/app-header.tsx:9,13-22`.
+- [=] Unverändert seit 2026-10-25 (`src/components/app-header.tsx` nicht in der Diff).
 - [!] NOT VERIFIED: wie die Kürzung mit „…“ tatsächlich aussieht. Es gab keinen Browser.
 
 #### Zusätzlich gefundene Edge Cases
-- [x] Nicht-String-Typen, fehlende Felder und Objekte wie `{"$ne":null}` in beiden Actions ergeben Feldmeldungen, kein Absturz, nichts angelegt.
-- [x] `/licenses/` und `//licenses` → 308 auf `/licenses`, dann greift das Tor. Ein Konto ohne Träger wird bei `/login` auf `/licenses` geleitet, ohne Schleife.
-- [x] Eine Server Action mit fremdem `Origin` endet mit 500 „Invalid Server Actions request“.
-- [x] Im Protokoll des Dev-Servers stehen keine Passwörter oder Tokens: `grep` nach den Testpasswörtern, `eyJ` und `sb_secret` findet 0 Treffer, weil `logging.serverFunctions` aus ist (`next.config.ts:6-8`).
-- [ ] **BUG-5 (Low):** Steuerzeichen im Trägernamen.
-- [ ] **BUG-6 (Low):** Registrierung angelegt, aber Meldung „bereits registriert“.
-- [ ] **BUG-7 (Low):** Zugriffstoken nach dem Abmelden noch gültig.
+- [x] **Proxy-Schalter nur bei genau `true`:** Der Code vergleicht mit `process.env.TRUSTED_PROXY === 'true'` (`account.actions.ts:74`). Zur Laufzeit landen alle Kopfvarianten unter `0.0.0.0`, der Schalter ist im laufenden Server also nicht `true`. Die Werte `TRUE`, ` true ` und `""` sind jetzt durch Unit-Tests aus diesem Lauf abgedeckt (siehe unten).
+- [=] Nicht-String-Typen, Weiterleitung `/licenses/` → 308, fremder `Origin`, keine Passwörter im Server-Protokoll. Unverändert seit 2026-10-25.
+- BUG-5, BUG-6 und BUG-7 sind Deferred, siehe unten.
 
 #### Technische Anforderungen: App-Rahmen und Browser
-- [x] Erfüllt laut Server-HTML und Quelltext:
-  - `lang="de"`, Inter selbst ausgeliefert (0 Treffer für `fonts.googleapis`/`gstatic`), auf `/licenses` kein Turnstile-Skript
-  - sichtbarer Fokus über `focus-visible:ring-2`
-  - Tippflächen `h-11` bzw. `min-h-11`
-  - Hinweisboxen als Text mit `role="alert"`
-  - Viewport-Meta gesetzt
-- [ ] **BUG-3 (Low):** Das Turnstile-Widget ist breiter als die Karte bei weniger als 364 px Bildschirmbreite.
-- [ ] **BUG-4 (Low):** Es gibt kein `error.tsx` und kein `not-found.tsx`.
+- [=] `lang="de"`, eigene Schrift, Fokus, Tippflächen, Hinweisboxen mit `role="alert"`, Viewport-Meta. Unverändert seit 2026-10-25 (`src/app`, `src/components` nicht in der Diff).
+- BUG-3 und BUG-4 sind Deferred, siehe unten.
 - [!] NOT VERIFIED: Kontrast in beiden Themes, Darstellung bei 375/768/1440 px, Chrome/Firefox/Safari/Edge. Dafür braucht es einen Browser.
 
 ## Security-Audit
 
-- [x] **Authentication:** Ohne Sitzung kommt man nicht hinein. Belege siehe AC-9:
-  - `curl` auf 8 Varianten von `/licenses` → 307
-  - gefälschtes JWT → 307
-  - `x-middleware-subrequest` → 307
-  - Code: `src/proxy.ts:47-68`, `src/features/account/session.data.ts:27-45`
-- [x] **Authorization:** Kein Verwalter sieht oder ändert Daten eines anderen. Getestet mit zwei Konten direkt gegen `/rest/v1`, Ergebnisse siehe AC-11. Policies und Grants: `supabase/migrations/20261021120000_proj1_training_providers.sql:43-70`.
-- [x] **Input validation:**
-  - HTML/XSS im Trägernamen wird maskiert ausgegeben, auch im `title`.
-  - SQL-artige Eingaben, NoSQL-Objekte, Arrays, `\r\nBcc:` und `__proto__` landen als Feldfehler.
-  - 5.000 Zeichen pro Feld werden abgelehnt.
-  - Mitgeschicktes `license_quota` wird ignoriert.
-  - Beleg: Zod in `src/features/account/account.schema.ts:110-138`, `safeParse` in `account.actions.ts:73,125`.
+- [x] **Authentication:** Stichprobe in diesem Lauf, anonym und mit dem alten Cookie nach dem Abmelden jeweils 307 (siehe AC-9, AC-10). Den Rest (gefälschtes JWT, `x-middleware-subrequest`) übernimmt der Lauf vom 2026-10-25, `src/proxy.ts` ist unverändert.
+- [=] **Authorization:** unverändert seit 2026-10-25 (RLS und Migrationen nicht in der Diff).
+- [x] **Input validation:** In diesem Lauf am Formular vorbei geprüft: falsche Typen, `{"$ne":null}`, Längen und Bytes (siehe AC-2). XSS, SQL-artige Eingaben und CRLF sind übernommen vom 2026-10-25, `account.schema.ts` ist unverändert.
 - [!] **Rate limiting auf gewöhnlichen Endpunkten** (`/sign-out`, Seiten): NOT VERIFIED, nicht implementiert (für das MVP optional).
-- [ ] **BUG-2, Brute force:** Sperre pro Konto ✓ (ab Versuch 6, auch für das richtige Passwort). Die Sperre pro IP greift nach 20 Versuchen, lässt sich aber über `X-Forwarded-For` umgehen. Damit ist Passwort-Spraying über viele Adressen unbegrenzt möglich.
-- [x] **Keine Kontenaufzählung beim Login:** gleicher Text für unbekannte und bekannte Adressen, Antwortzeiten 1.043–1.053 ms in allen Fällen (siehe AC-5). Bei der Registrierung ist der Hinweis bewusst offen (Decision Log der Spec).
-- [ ] **BUG-2, Massen-Registrierung:** Die Registrierungsbremse lässt sich über `X-Forwarded-For` umgehen (siehe AC-8). Mit den Testschlüsseln lässt die Bot-Prüfung lokal alles durch.
-- [x] **Direkter Weg zu Supabase gesperrt:** Signup, Token, OTP, Magic Link, Recover und Telefon liefern mit dem öffentlichen Schlüssel `captcha_failed` (siehe AC-7).
-- [x] **Keine Zugangsdaten in der URL:** Beide Formulare werden als `<form … method="post">` gerendert. Ein nativer POST mit urlencoded Body bleibt ohne Daten in der Adresse.
+- [x] **Brute force pro Konto:** ab dem 6. Versuch gesperrt, auch mit richtigem Passwort, anderer Schreibweise und gefälschtem Kopf (AC-6).
+- [ ] **Brute force pro IP bzw. Passwort-Spraying:**
+  - Getestet mit 8 Adressen und demselben Passwort, dazu Fehlversuche bis 20. Danach ist der Login gesperrt.
+  - Die Umgehung per Kopf ist geschlossen (BUG-2).
+  - Offen ist **BUG-9:** Die Sperre wirkt für alle Clients gemeinsam.
+- [x] **IP-Spoofing in allen Varianten:** Geprüft wurden XFF einzeln, mit mehreren Einträgen, mit einer privaten IP vorn, mit IPv6, mit `unknown` und kleingeschrieben, außerdem `X-Real-IP`, `Forwarded`, `CF-Connecting-IP` und `True-Client-IP`. Alles landet unter `0.0.0.0` (`count(distinct ip_address)=1`).
+- [x] **Keine Kontenaufzählung beim Login:** gleicher Text, Zeiten 1.015–1.045 ms für unbekannt, falsch und gesperrt (AC-5). Ein Erfolg antwortet ohne Wartezeit (532–943 ms), so legt es `design.md` fest. Über die Existenz einer Adresse verrät das nichts.
+- [ ] **Massen-Registrierung:**
+  - 5 pro Stunde, nicht per Kopf umgehbar (AC-8).
+  - Die Grenze gilt aber für alle gemeinsam (BUG-9).
+  - Lokal lässt die Bot-Prüfung mit den Testschlüsseln alles durch.
+- [=] **Direkter Weg zu Supabase gesperrt** (`captcha_failed`): unverändert seit 2026-10-25, Dashboard-Einstellung T18.
+- [x] **Keine Zugangsdaten in der URL:** Beide Formulare stehen im Server-HTML mit `method="post"`.
 - [x] **Keine Geheimnisse im Client-Bundle:**
-  - Ein Skript hat die echten Werte von `SUPABASE_SERVICE_ROLE_KEY` und `TURNSTILE_SECRET_KEY` geladen und nur Treffer gezählt. In `.next/static` (90 Dateien) und 26 live geladenen Dev-Chunks: 0 Treffer.
-  - `grep 'sb_secret_|service_role|SERVICE_ROLE|TURNSTILE_SECRET'` in den Bundles: 0 Treffer.
-  - Der Server-Schlüssel steckt nur in `src/lib/supabase/admin.ts:12` (`server-only`).
-- [x] **Keine Geheimnisse in der Git-Historie:** `git log --all -p | grep -cE 'sb_secret_…|eyJhbGciOi…|sb_publishable_…'` = 0. Die einzige eingecheckte Env-Datei ist `.env.local.example`.
-- [x] **Keine sensiblen Daten in Antworten:** Die Antwort auf einen erfolgreichen Login enthält kein Token, keine Konto-ID und keine E-Mail (0 Treffer für `access_token|refresh_token|eyJ|"sub"`). Das HTML von `/licenses` enthält keine IDs, kein Kontingent und kein Token.
-- [x] **Sicherheitsheader:** `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: origin-when-cross-origin` und `Strict-Transport-Security: max-age=31536000; includeSubDomains`, kein `X-Powered-By`. Gemessen auf `/login`, `/register`, `/licenses`, einer unbekannten Adresse und einem statischen Chunk. Konfiguration: `next.config.ts:12-24`.
-- [x] **CSRF:** Eine Server Action mit fremdem `Origin` wird abgelehnt (500 „Invalid Server Actions request“).
-- [ ] **BUG-1, `[user]`-Einstellungen:** T1–T4, T8 und T16–T18 sind abgehakt. Bei T16, T17 und T18 ist die Wirkung beobachtet:
-  - T16: `mailer_autoconfirm:true`
-  - T17: `weak_password` bei 6 Zeichen
-  - T18: `captcha_failed`
-  - **T4 wirkt nicht:** Das Audit-Log wird weiter in die Datenbank geschrieben.
-  - T29 und T30 sind `[user go-live]` und damit kein Bug.
+  - Durchsucht wurden `.next/static` (23 Dateien, neuer als die Code-Änderung) und 26 live geladene Dev-Chunks von `/login` und `/register`.
+  - Gesucht nach `sb_secret_`, `service_role`, `SERVICE_ROLE`, `TURNSTILE_SECRET`, `TRUSTED_PROXY`, `eyJhbGciOi` und den Test-Secrets `1x0…0AA` und `2x0…0AA`: 0 Treffer.
+  - Im Bundle steht nur der öffentliche Site-Key, wie vorgesehen.
+- [x] **Keine Geheimnisse in den neuen Commits:** `git log -p ec65f07..HEAD | grep -cE 'sb_secret_[A-Za-z0-9]|eyJhbGciOi|sb_publishable_[A-Za-z0-9]'` = 0.
+- [x] **Keine sensiblen Daten in Antworten:** Die Antwort auf einen erfolgreichen Login enthält 0 Treffer für `access_token`, `refresh_token`, `eyJ`, E-Mail, Passwort, `license_quota`, `training_provider_id`, `"sub"`, `user_id` und die Konto-ID. Fehlerantworten enthalten nur `formError` bzw. `fieldErrors`.
+- [x] **Sicherheitsheader:** `X-Frame-Options: DENY`, `nosniff`, `origin-when-cross-origin` und HSTS mit `includeSubDomains`, gemessen auf `/login` (Dev-Server). `next.config.ts` ist unverändert.
+- [=] **CSRF:** Eine Server Action mit fremdem `Origin` wird abgelehnt. Unverändert seit 2026-10-25.
+- [x] **`[user]`-Einstellungen:**
+  - T4 wirkt jetzt (BUG-1).
+  - T17 prüft jetzt `auth.data.test.ts` → „Mindestlänge Passwort in Supabase“, grün im Suite-Lauf.
+  - T1–T3, T8, T16 und T18 sind abgehakt und wirken über die Integrationstests bzw. AC-1 und AC-7.
+  - T31 ist nicht abgehakt, der Platzhalter ist aber angelegt (siehe Hinweise). Kein Bug: Fehlt die Variable, bleibt der sichere Standard aktiv, und das ist zur Laufzeit belegt.
+  - T29, T30 und T32 sind `[user go-live]` und damit kein Bug.
 
 ## Regression
 
-- [x] **Suite:** 16 Dateien, 416 Tests bestanden, 0 fehlgeschlagen (`npm test`, einmal vor den Prüfern). Alle 16 versionierten Testdateien liefen mit.
+- [x] **Suite:** 17 Dateien, 440 Tests bestanden, 0 fehlgeschlagen (`npm test`, einmal vor dem Prüfer). Die Zahl passt zur Diff: 416 aus dem ersten Lauf, 20 aus `form-feedback.test.tsx` (ec65f07) und 4 neue Fälle (2 in `account.actions.test.ts`, 2 in `auth.data.test.ts`).
 - [x] **Prüfdefinitionen intakt:**
-  - `.skip`, `.only`, `.todo`, `xit`, `fit`: 0 Treffer.
-  - Keine leeren Assertions. Der einzige Treffer der Suche, `login-form.test.tsx:127`, ist eine echte Prüfung.
-  - `vitest.config.mts` schließt nur `tests/**` aus.
-  - Die Integrationstests werfen, wenn eine Variable fehlt (`src/test/supabase.ts:14-18`).
-  - Die Scripts in `package.json` sind gegenüber `main` unverändert.
-- [x] **Statische Prüfungen:** `npm run build` exit 0 inkl. TypeScript, `npm run lint` exit 0, `npm run check:structure` meldet „106 modules scanned, 0 errors“.
-- [x] **Deployte Features:** In `features/INDEX.md` hat keines den Status „Deployed“, zu PROJ-2 und PROJ-3 gibt es noch keinen Code. Rückwärts ist also nichts zu prüfen.
-- [x] **Gemeinsame Teile liefern ihren Inhalt** (geholtes HTML):
-  - Wurzel-Layout (`lang="de"`, Seitentitel)
-  - Design-Tokens im ausgelieferten CSS (`--primary`, `prefers-color-scheme: dark`, `.type-title`)
-  - die Schrift-Datei (200 `font/woff2`)
-  - der Rahmen für Abgemeldete mit Links zwischen Login und Registrierung
-  - die statischen SVGs (200)
+  - `grep -rnE "\.(skip|only|todo)\(|\bxit\(|\bfit\(|skipIf|runIf" src --include='*.test.ts*'`: 0 Treffer.
+  - `package.json` und `vitest.config.mts` sind in der Diff unverändert.
+  - `account.actions.test.ts`: `beforeEach` setzt jetzt `TRUSTED_PROXY=true`, damit die bisherigen Kopf-Tests den Weg hinter einem Proxy prüfen. Die Erwartungen sind unverändert, nur der Testname ist neu. `afterEach` ruft `vi.unstubAllEnvs()` auf, es leckt also nichts zwischen den Tests.
+  - Der neue Block erwartet `0.0.0.0` an beiden Bremsen und keine IP an Cloudflare.
+  - `auth.data.test.ts`, T4-Test: Gegenbeweis rot (siehe BUG-1).
+- [x] **Statische Prüfungen:** `npm run build` exit 0 (inkl. TypeScript), `npm run lint` exit 0, `npm run check:structure` „106 modules scanned, 0 errors“.
+- [x] **Deployte Features:** In `features/INDEX.md` hat keines den Status „Deployed“. Rückwärts ist also nichts zu prüfen.
+- [x] **Gemeinsame Teile:** Tor-Weiterleitungen, `/sign-out` (303) und das Kopfzeilen-HTML von `/licenses` per `curl` abgerufen.
 - [!] NOT VERIFIED: Optik und Responsive-Verhalten der gemeinsamen Teile. Es gab keinen Browser.
-- [!] NOT VERIFIED: der Produktions-Server (`next start`). Geprüft ist der Dev-Server, den Build belegt `exit 0`.
+- [!] NOT VERIFIED: der Produktions-Server (`next start`). Geprüft sind das Build-Artefakt und der Dev-Server.
 
-## Unit-Tests (in diesem Lauf geschrieben)
+## Unit-Tests
 
-- [x] `src/features/account/components/form-feedback.test.tsx`: 20 Tests zu `isRedirectError` und `isConnectionError`. Die beiden Funktionen entscheiden, ob ein abgefangener Fehler nach dem Absenden Erfolg ist (Weiterleitung, AC-1, AC-4), „Keine Verbindung“ (EC-9) oder ein Serverfehler (EC-3).
-  - Lauf: `npx vitest run src/features/account/components/form-feedback.test.tsx` → 20 bestanden.
-  - **Gegenbeweis:** Alle Erwartungen der Datei umgedreht → 20 von 20 rot. Wieder hergestellt → 20 von 20 grün.
-- Geprüft und bewusst nicht ergänzt: `account.rules.ts`, `account.schema.ts` und `cookie-options.ts` haben schon dichte Tests mit Grenzwerten. Diese Tests lagen im Suite-Lauf grün.
+- [x] **In diesem Lauf ergänzt:** `src/features/account/account.actions.test.ts` → Block „IP-Adresse ohne vertrauenswürdigen Proxy“ mit 3 neuen Fällen: `TRUSTED_PROXY` = `TRUE`, ` true ` und `""`. `design.md` legt fest: „Jeder andere Wert als genau `true` gilt als ‚kein Proxy‘“. Ein Tippfehler im Wert darf den Kopf also nicht für den Client öffnen.
+  - Lauf: `npx vitest run src/features/account/account.actions.test.ts -t "ohne vertrauenswürdigen Proxy"` → 5 bestanden.
+  - **Gegenbeweis:** Der Vergleich in `visitorIp` wurde kurz auf `trim().toLowerCase() === 'true'` gelockert und auch für den leeren Wert geöffnet. Danach schlugen genau die 3 neuen Fälle fehl (3 failed, 39 passed). Mit dem wiederhergestellten Code (`git checkout`) laufen alle 42 grün.
+- [=] **Aus dem ersten Lauf:** `src/features/account/components/form-feedback.test.tsx` (20 Tests), grün im Suite-Lauf.
 
 ## E2E-Tests
 _Optionale Ebene, geschrieben von `/e2e-tests` nur für kritische Kernabläufe._
@@ -288,63 +228,52 @@ _Optionale Ebene, geschrieben von `/e2e-tests` nur für kritische Kernabläufe._
 ## Nicht verifiziert in diesem Lauf
 
 - [!] **Darstellung in verschiedenen Browsern** (Chrome, Firefox, Safari, Edge): `/qa` läuft ohne Browser, das deckt nur `/e2e-tests` ab.
-- [!] **Responsive Layout bei 375/768/1440 px**, Kürzung des Trägernamens (EC-10), Kontrast: Dafür braucht es einen echten Viewport. BUG-3 ist aus dem Code berechnet, nicht gerendert.
-- [!] **Verhalten im Browser:**
+- [!] **Responsive Layout bei 375/768/1440 px**, Kürzung des Trägernamens (EC-10), Kontrast: Dafür braucht es einen echten Viewport.
+- [!] **Verhalten im Browser:** Belegt sind diese Punkte nur durch Code und Komponententests.
   - Felder bleiben ausgefüllt (AC-2, EC-3)
   - Knopf gesperrt während des Sendens (EC-1)
   - Meldung, wenn das Widget nicht lädt (EC-8)
   - Verbindungsabbruch (EC-9)
-  - „Zurück“ und Browser-Neustart (AC-10)
-  - Belegt sind diese Punkte nur durch Code und Komponententests.
-- [!] **Ein von Cloudflare abgelehntes Token (AC-7):** Das Test-Secret nimmt jedes Token an. Zum Prüfen kurz `TURNSTILE_SECRET_KEY=2x0000000000000000000000000000000AA` in `.env.local` setzen.
-- [!] **Eigenes Turnstile-Widget (T29) und Auftragsverarbeitungsverträge (T30):** go-live, werden in `/deploy` gemacht und geprüft.
-- [!] **Wirkung von `X-Forwarded-For` hinter einem echten Host:** go-live, es gibt kein Deployment.
-- [!] **Supabases eigene Grenzen** für Aufrufe mit dem Server-Schlüssel (Authentication → Rate Limits): nicht ausgereizt, damit sich die Prüfer nicht gegenseitig sperren.
+  - „Zurück“ und Neustart des Browsers (AC-10)
+- [!] **Echtes Ablaufen der 15-Minuten-Sperre (AC-6):** In diesem Lauf simuliert, real geprüft am 2026-10-25.
+- [!] **Ein von Cloudflare abgelehntes Token (AC-7):** Das Test-Secret nimmt jedes Token an.
+- [!] **Weg hinter einem echten Proxy mit `TRUSTED_PROXY=true` (BUG-2):** go-live (T32). Abgedeckt nur durch die Unit-Tests in `account.actions.test.ts`.
+- [!] **Eigenes Turnstile-Widget (T29), Auftragsverarbeitungsverträge (T30), Proxy-Schalter beim Host (T32):** go-live, werden in `/deploy` gemacht und geprüft.
+- [!] **Dashboard-Einstellung T4 selbst:** nicht einsehbar. Belegt ist ihre Wirkung (0 neue Zeilen).
 - [!] **Rate limiting auf gewöhnlichen Endpunkten:** nicht implementiert, für das MVP optional.
 - [!] **Produktions-Server (`next start`):** nicht gestartet.
+- Die mit `[=]` markierten Punkte sind in diesem Lauf nicht erneut geprüft. Sie bestanden am 2026-10-25, und ihr Code ist seitdem unverändert.
 
 ## Bugs
 
 #### BUG-1: Supabase schreibt das Auth-Audit-Log in die Datenbank, Reste gelöschter Konten bleiben
-- **Severity:** High. Verletzt AC-12 („keine Zeile verweist mehr auf ihn“, Art. 17 DSGVO).
-- **Status:** Open
-- **Class:** Eine abgehakte `[user]`-Einstellung im Anbieter-Dashboard wirkt nicht, und keine Prüfung bestätigt ihre Wirkung. Konkret T4: „Write audit logs to the database“ → aus. `design.md`, `README.md:33` und `docs/privacy.md:57` versprechen dasselbe.
-- **Sweep:** `env -u SUPABASE_ACCESS_TOKEN supabase db query --linked "select count(*) from auth.audit_log_entries a where payload->>'actor_id' is not null and not exists (select 1 from auth.users u where u.id::text = a.payload->>'actor_id')"` → **887 Zeilen zu 219 gelöschten Konten**. Insgesamt stehen 924 Zeilen in der Tabelle, 569 davon aus der letzten Stunde (Stand 2026-10-25, 11:13 UTC). Die anderen `[user]`-Einstellungen (T16, T17, T18) wirken nachweislich.
-- **Steps to Reproduce:**
-  1. Ein Konto über `/register` anlegen.
-  2. Das Konto in Supabase → Authentication → Users löschen.
-  3. `select payload->>'action' from auth.audit_log_entries where payload::text like '%<user-id>%'` ausführen.
-  4. Erwartet: 0 Zeilen.
-  5. Tatsächlich: Zeilen wie `user_signedup`, `login`, `logout` und `user_deleted`, mit Konto-ID und E-Mail-Adresse.
-- **Hinweis:**
-  - Die Einstellung im Dashboard prüfen (Authentication → Audit Logs).
-  - Den Bestand bereinigen.
-  - Lässt sich die Einstellung nicht wirksam abschalten, braucht AC-12 einen anderen Weg (`/build`, ggf. `/architecture`).
-  - Ob die Spalte `ip_address` der Einträge gefüllt ist, wurde nicht geprüft. Das betrifft die Begründung von T4 zu AC-13.
+- **Severity:** High. Verletzte AC-12.
+- **Status:** Fixed (2026-10-25, re-verified)
+- **Class:** Eine abgehakte `[user]`-Einstellung im Anbieter-Dashboard wirkt nicht, und keine Prüfung bestätigt ihre Wirkung. Hier T4: „Write audit logs to the database“ → aus.
+- **Sweep:** `env -u SUPABASE_ACCESS_TOKEN supabase db query --linked "select count(*) from auth.audit_log_entries a where payload->>'actor_id' is not null and not exists (select 1 from auth.users u where u.id::text = a.payload->>'actor_id')"` → **0** (vorher 887). `select count(*) from auth.audit_log_entries` → 0.
+- **Re-Verifikation:**
+  - In diesem Lauf gab es 3 Registrierungen, über 12 erfolgreiche Logins, `POST /sign-out` und die Löschung von 2 Konten. Neue Zeilen im Audit-Log: 0.
+  - Gegenbeweis zum neuen Test: Eine Platzhalter-Zeile ins Audit-Log eingefügt, dann `npx vitest run src/features/account/auth.data.test.ts -t "Audit-Log nicht in der Datenbank"` ausgeführt. Ergebnis: 1 failed, „expected 0, received 1“ (`auth.data.test.ts:267`). Die Zeile ist wieder gelöscht.
+  - Der Test liest also die echte Tabelle. Signup, Abmelden und `auth.admin.deleteUser` im Test erzeugten keine Zeile.
+  - Die Fehlerart ist über alle `[user]`-Aufgaben gesucht: T17 hat jetzt ebenfalls einen Test.
 
 #### BUG-2: IP-Sperren von Login und Registrierung über `X-Forwarded-For` umgehbar
-- **Severity:** High. Verletzt AC-6 (Teil „20 Fehlversuche von derselben IP-Adresse“), AC-8 und die Technische Anforderung „Jede Regel … gilt auf dem Server“. Damit greift auch die Abfederung nicht, mit der der Decision Log den offenen Hinweis aus AC-3 begründet.
-- **Status:** Open
+- **Severity:** High. Verletzte AC-6 und AC-8.
+- **Status:** Fixed (2026-10-25, re-verified für den lokalen Betrieb ohne Proxy). Der Weg hinter einem Proxy ist go-live (T32).
 - **Class:** Die Client-IP für Sicherheitsentscheidungen kommt aus einem Kopf, den der Client selbst setzt, ohne vertrauenswürdigen Proxy davor.
-  - `src/features/account/account.actions.ts:68-70` liest `x-forwarded-for`.
-  - `src/features/account/account.rules.ts:69-79` übernimmt den letzten Eintrag.
-  - Next.js setzt die Verbindungsadresse nur ein, wenn der Kopf fehlt. Lokal ist das `::1`.
-- **Sweep:** `grep -rni "x-forwarded-for\|x-real-ip" src | grep -v '\.test\.'` → 4 Treffer, davon 1 Codestelle (`account.actions.ts:69`). Die anderen 3 sind Kommentare in `account.rules.ts`.
-- **Steps to Reproduce:**
-  1. 20 Logins mit `X-Forwarded-For: 192.0.2.30`, jeweils eine andere unbekannte Adresse und dasselbe Passwort. Der 21. Versuch bekommt „Zu viele Anmeldeversuche…“.
-  2. Denselben Versuch mit `X-Forwarded-For: 192.0.2.31` wiederholen.
-  3. Erwartet: weiterhin gesperrt, denn der Absender ist derselbe.
-  4. Tatsächlich: „E-Mail-Adresse oder Passwort ist falsch.“, der Versuch erreicht also die Passwortprüfung.
-  5. Registrierung: 5 Duplikate von 192.0.2.40, der 6. Versuch ist gesperrt. Der nächste Versuch mit 192.0.2.41 erreicht wieder Supabase.
-- **Hinweis:**
-  - `design.md` nennt das Risiko selbst (Technische Entscheidungen „IP aus dem letzten Eintrag“ und Offene Frage „Vor einem Live-Gang“).
-  - Laut PRD wird nie deployt. Der lokale Betrieb ist also der Betrieb, und dort steht kein Proxy davor, der den Kopf setzt.
-  - `next dev` lauscht außerdem im lokalen Netz.
-  - Die Sperre pro Adresse wirkt unabhängig davon.
+- **Sweep:** `grep -rni "x-forwarded-for\|x-real-ip" src | grep -v '\.test\.'` → 5 Treffer, davon 1 Codestelle. Die Codestelle `account.actions.ts:75` liest den Kopf nur bei `TRUSTED_PROXY === 'true'`. Die anderen 4 sind Kommentare (`account.actions.ts:69`, `account.rules.ts:3,60,64`). Eine erweiterte Suche nach `cf-connecting-ip|true-client-ip|forwarded|remoteAddress` fand keine weitere IP-Quelle.
+- **Re-Verifikation:**
+  - **Login:** 20 Fehlversuche mit allen Kopfvarianten stehen alle unter `0.0.0.0` (`count(distinct ip_address)=1`). Danach gesperrt:
+    - 8 Kopfvarianten
+    - ein Versuch ohne Kopf
+    - ein Versuch über 127.0.0.1
+    - ein Versuch über die LAN-Adresse 192.168.178.81
+  - **Registrierung:** siehe AC-8.
+- **Neue Folge des Fixes:** BUG-9.
 
 #### BUG-3: Turnstile-Widget breiter als die Karte bei schmalen Smartphones
 - **Severity:** Low. Betrifft die Technische Anforderung „nutzbar ab Smartphone-Breite“. Aus dem Code berechnet, nicht gerendert.
-- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25)
+- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25). Unverändert seit 2026-10-25, nicht erneut geprüft (`bot-check.tsx` nicht in der Diff).
 - **Class:** Element mit fester Mindestbreite in einem schmaleren Container.
 - **Sweep:** `grep -rn "size: 'flexible'" src --include='*.tsx' | grep -v test` → 1 Treffer (`src/features/account/components/bot-check.tsx:17`). Die Bibliothek setzt `minWidth: 300`.
 - **Steps to Reproduce:**
@@ -355,21 +284,20 @@ _Optionale Ebene, geschrieben von `/e2e-tests` nur für kritische Kernabläufe._
 
 #### BUG-4: Keine eigene Fehler- und 404-Seite
 - **Severity:** Low
-- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25)
+- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25). Unverändert seit 2026-10-25, nicht erneut geprüft (`src/app` nicht in der Diff).
 - **Class:** Systemseiten fehlen im App-Rahmen.
   - `docs/app-shell.md` → Seitenmuster verlangt bei einem Ladefehler eine Hinweisbox mit „Erneut versuchen“.
   - Laut PRD ist die Oberfläche nur auf Deutsch.
-  - `design.md` → „Offen für /qa“ nennt den Punkt selbst.
 - **Sweep:** `find src/app -name 'error.tsx' -o -name 'global-error.tsx' -o -name 'not-found.tsx' | wc -l` → 0.
 - **Steps to Reproduce:**
   1. Anmelden, dann `GET /does-not-exist` aufrufen.
   2. Erwartet: eine deutsche Seite im App-Rahmen.
   3. Tatsächlich: 404 mit Next.js' englischer Standardseite „404: This page could not be found.“ und zwei `<title>`-Tags.
-  4. Kann die Mitgliedschaft nicht gelesen werden, wirft der Wächter (`src/features/account/session.data.ts:45`), und Next.js zeigt seine Standard-Fehlerseite statt der Hinweisbox. Das ist aus dem Code abgeleitet, der Fehler wurde nicht ausgelöst.
+  4. Kann die Mitgliedschaft nicht gelesen werden, wirft der Wächter (`src/features/account/session.data.ts:45`), und Next.js zeigt seine Standard-Fehlerseite statt der Hinweisbox. Das ist aus dem Code abgeleitet.
 
 #### BUG-5: Trägername mit Steuerzeichen besteht das Schema
 - **Severity:** Low
-- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25)
+- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25). Besteht weiter: In diesem Lauf führte ein Name mit `\u0000` wieder zur allgemeinen Meldung statt zu einer Feldmeldung (EC-3). `account.schema.ts` ist nicht in der Diff.
 - **Class:** Die Freitext-Eingaberegel schließt Steuerzeichen nicht aus.
 - **Sweep:** `grep -rnE 'p\{Cc\}|x00|u0000|control' src --include='*.schema.ts'` → 0 Treffer. Betroffen ist das einzige gespeicherte Freitextfeld, `src/features/account/account.schema.ts:59`.
 - **Steps to Reproduce:**
@@ -377,13 +305,12 @@ _Optionale Ebene, geschrieben von `/e2e-tests` nur für kritische Kernabläufe._
   2. Erwartet: eine Feldmeldung am Trägernamen.
   3. Tatsächlich: die allgemeine Meldung „Die Registrierung ist fehlgeschlagen…“. Es entsteht nichts.
   4. Andere Steuer- und Bidi-Zeichen würden gespeichert und in der Kopfzeile ausgegeben (nicht ausgelöst).
-- **Ebenfalls beobachtet, nicht verifiziert:** Ein Name mit `'; drop table x;--` endete mit derselben allgemeinen Meldung, ohne diesen Teil klappte die Registrierung. Vermutlich ein Filter vor der Supabase-API.
 
 #### BUG-6: Nach erfolgreicher Registrierung erscheint „bereits registriert“, wenn die Sitzung nicht übernommen wird
 - **Severity:** Low. Nur im Code gefunden, nicht ausgelöst.
-- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25)
+- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25). Besteht weiter: Die Fallback-Logik `account.actions.ts:113-118` ist unverändert, die Diff berührt nur die Zeilen 68–76.
 - **Class:** Der Fehler-Fallback hält den eigenen Erfolg für ein fremdes Duplikat.
-- **Sweep:** `grep -rn "isEmailRegistered(" src --include='*.ts' | grep -v test` → 2 Treffer, davon 1 Aufruf (`src/features/account/account.actions.ts:107-111`).
+- **Sweep:** `grep -rn "isEmailRegistered(" src --include='*.ts' | grep -v test` → 2 Treffer: die Definition (`throttle.data.ts:89`) und 1 Aufruf (`src/features/account/account.actions.ts:115`).
 - **Steps to Reproduce:**
   1. `signUp` gelingt, aber das anschließende `setSession` (`src/features/account/auth.data.ts:64`) scheitert, z. B. bei einem kurzen Netzausfall zu Supabase.
   2. Erwartet: sofort angemeldet (AC-1) oder die Meldung aus EC-3.
@@ -391,7 +318,7 @@ _Optionale Ebene, geschrieben von `/e2e-tests` nur für kritische Kernabläufe._
 
 #### BUG-7: Zugriffstoken liest nach dem Abmelden weiter über die Datenbank-Schnittstelle
 - **Severity:** Low. Die App selbst ist dicht, und das Cookie ist HttpOnly.
-- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25)
+- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25). Unverändert seit 2026-10-25, nicht erneut geprüft (Migrationen nicht in der Diff).
 - **Class:** Ein zustandsloses JWT bleibt nach dem Abmelden bis zu seinem Ablauf gültig, weil die Leseregeln nicht prüfen, ob die Sitzung noch besteht.
 - **Sweep:** `grep -rn "session_id\|auth.sessions" supabase/migrations | wc -l` → 0.
 - **Steps to Reproduce:**
@@ -399,36 +326,77 @@ _Optionale Ebene, geschrieben von `/e2e-tests` nur für kritische Kernabläufe._
   2. `POST /sign-out`.
   3. `GET /rest/v1/training_providers` mit diesem Token aufrufen.
   4. Erwartet: keine Zeilen.
-  5. Tatsächlich: 200 mit der eigenen Zeile, bis das Token abläuft (höchstens etwa 1 Stunde). `/auth/v1/user` meldet schon 403 `session_not_found`.
+  5. Tatsächlich: 200 mit der eigenen Zeile, bis das Token abläuft (höchstens etwa 1 Stunde).
 
 #### BUG-8: Sperrmeldung nennt „16 Minuten“ bei gleichzeitigen Versuchen
 - **Severity:** Low
-- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25)
-- **Class:** Die Restzeit wird aus zwei Uhren berechnet: das Sperrende aus `now()` der Datenbank, die Gegenwart aus `new Date()` auf dem Server (`src/features/account/account.actions.ts:145`). Aufgerundet (`src/features/account/account.rules.ts:48`) ergibt ein winziger Uhrenversatz eine Minute mehr.
+- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25). Besteht weiter, nicht erneut provoziert: Die Gegenwart kommt weiter aus `new Date()` auf dem Server (`account.actions.ts:151`).
+- **Class:** Die Restzeit wird aus zwei Uhren berechnet: das Sperrende aus `now()` der Datenbank, die Gegenwart aus der Uhr des Servers. Aufgerundet (`src/features/account/account.rules.ts:48`) ergibt ein winziger Uhrenversatz eine Minute mehr.
 - **Sweep:** `grep -rn "remainingMinutes(" src --include='*.ts' | grep -v test` → 2 Treffer: die Definition (`account.rules.ts:44`) und 1 Aufruf (`account.rules.ts:198`).
 - **Steps to Reproduce:**
   1. 12 gleichzeitige Fehlversuche auf eine frische Adresse schicken.
   2. Erwartet laut `design.md` → Login-Bremse im Detail: „Die Meldung nennt also 15 Minuten“.
-  3. Tatsächlich: 7 von 12 Antworten nannten „in 16 Minuten“. Das hat der Security-Prüfer beobachtet, die Ursache ist aus dem Code abgeleitet.
+  3. Tatsächlich (Lauf vom 2026-10-25): 7 von 12 Antworten nannten „in 16 Minuten“.
+
+#### BUG-9: IP-Bremsen zählen alle Clients gemeinsam statt pro IP-Adresse (neu, Folge des Fixes von BUG-2)
+- **Severity:** Medium. Widerspricht AC-6 („20 fehlgeschlagene Versuche von derselben IP-Adresse“) und AC-8 („von derselben IP-Adresse“). Unter Missbrauch beschränkt das AC-4 und AC-1 für alle Verwalter.
+- **Status:** Deferred (vom Nutzer entschieden am 2026-10-25)
+- **Class:** Eine Sicherheitsbremse schlüsselt alle Clients auf denselben Ersatzwert. Aus dem Zähler pro Client wird ein globaler Zähler, und der wird zum Hebel gegen alle.
+- **Sweep:** `grep -rn "clientIpFrom(\|visitorIp()" src --include='*.ts' | grep -v '\.test\.'` → 5 Treffer, beide Bremsen sind betroffen:
+  - Definition `visitorIp` (`account.actions.ts:73`)
+  - `clientIpFrom(null)` ohne Proxy (`:75`)
+  - die Aufrufe in `register` (`:88`) und `login` (`:144`)
+  - die Definition von `clientIpFrom` (`account.rules.ts:69`)
+- **Steps to Reproduce:**
+  1. **Login:** 20 Fehlversuche mit beliebigen Adressen über `http://localhost:3001` schicken.
+  2. Dann ein anderes, ungesperrtes Konto mit dem richtigen Passwort über `http://192.168.178.81:3001` anmelden. Die Verbindung läuft dabei nicht über Loopback.
+  3. Erwartet laut AC-6: Anmeldung klappt, denn von dieser IP gab es keine Fehlversuche.
+  4. Tatsächlich: „Zu viele Anmeldeversuche. Bitte versuchen Sie es in 15 Minuten erneut.“
+  5. **Registrierung:** 5 gezählte Registrierungen (Erfolg oder Duplikat) von irgendwem. Danach bekommt auch eine Registrierung über 192.168.178.81 eine Stunde lang „Zu viele Registrierungen…“.
+- **Hinweis:**
+  - `next dev` lauscht auf allen Schnittstellen (`*:3001`). Jeder im lokalen Netz kann also mit 20 Fehlversuchen alle 15 Minuten den Login aller Verwalter sperren. Mit 5 Duplikaten pro Stunde blockiert er jede neue Registrierung. Mit den Testschlüsseln kostet das kein CAPTCHA.
+  - `design.md` → Technische Entscheidungen (2026-10-25, „Entscheidung des Betreibers“) nimmt das bewusst in Kauf. `spec.md` ist nicht nachgezogen: AC-6 und AC-8 sagen weiter „von derselben IP-Adresse“, und der Decision Log der Spec nennt nur die Kontosperre als Hebel.
+  - Auflösen lässt sich das auf zwei Wegen:
+    - `/refine PROJ-1`: AC-6 und AC-8 an die Entscheidung anpassen, z. B. „ohne vertrauenswürdigen Proxy zählen alle Anfragen als eine Adresse“.
+    - ein anderer Fix in `/build`, z. B. ein eigener Node-Server, der den Kopf mit der Adresse der Verbindung überschreibt.
+  - Medium statt High: Laut PRD läuft die App nur lokal, und dort kommen echte Anfragen ohnehin alle von einer Adresse. Die Sperre pro Adresse wirkt unabhängig davon. Workarounds: abwarten, die Bremszeilen löschen oder `next dev -H 127.0.0.1` starten.
 
 ## Hinweise ohne Bug (zur Kenntnis)
 
-- **Abmelden ohne Prüfung des `Origin`:** `/sign-out` verlässt sich auf `SameSite=Lax`. Mit curl ließ sich ein fremdes Abmelden auslösen, ein Browser schickt das Cookie dabei aber nicht mit.
-- **Registrieren mit bestehender Sitzung:** Die Action ist auch für angemeldete Nutzer aufrufbar und würde die Sitzung ersetzen (nicht getestet).
-- **Kontosperre als Hebel:** Jeder kann eine bekannte Adresse mit 5 Fehlversuchen für 15 Minuten sperren. So hat es die Spec entschieden, mit echter Bot-Prüfung kostet jeder Versuch ein gelöstes CAPTCHA.
-- **Kein `Content-Security-Policy`-Kopf:** Die Sicherheitsregeln verlangen ihn nicht.
-- **Seitentitel bei einem Konto ohne Träger:** weiterhin „Lizenzübersicht – Lizenzzentrale“.
-- **Außerhalb von PROJ-1:**
-  - In `features/INDEX.md` → Deployments steht noch die Beispielzeile des Kits.
-  - `/favicon.ico` liefert 404, wie auf `main`.
-  - `passWithNoTests` würde ein kaputtes Include-Muster grün durchlassen.
+- **T31 nicht abgehakt:** `tasks.md:154` steht noch auf `- [ ] T31 [user]`. Laut Commit `c926e20` ist der Platzhalter angelegt (`git show --stat c926e20` → `.env.local.example | 1 +`), den Inhalt hat die QA nicht gelesen. Den Haken setzt der Nutzer.
+- **Alte Integrationstest-Konten:** In `auth.users` liegen 3 Konten von 2026-10-25, 10:28 UTC, jeweils mit Träger und Sitzung: `lizenzzentrale-test-signup-74ea847f…`, `lizenzzentrale-test-signup-d8f00437…` und `lizenzzentrale-test-account-97e7bc3a…@example.com`. Ein früherer Testlauf hat sie nicht aufgeräumt, vermutlich ein abgebrochener Lauf. Sie lassen sich in Supabase → Authentication → Users löschen. Die QA hat sie nicht angefasst.
+- **Secure-Flag aus einem Client-Kopf:** `src/lib/supabase/server.ts:16` nimmt das Secure-Flag der Cookies aus `x-forwarded-proto`, und den Kopf kann der Client setzen. Das ist dieselbe Vertrauensfrage wie bei BUG-2. Es betrifft aber nur die eigenen Cookies des Clients, ein Angriff ist nicht erkennbar.
+- **Kein Anmeldeprotokoll in der Datenbank:** Seit T4 wirkt, entsteht auch für Login und Logout kein Eintrag im Audit-Log. Das ist so gewollt (AC-12), wer Anmeldungen nachvollziehen will, hat dafür aber kein Protokoll mehr.
+- **Aus dem ersten Lauf, weiter gültig, nicht erneut geprüft:**
+  - `/sign-out` prüft den `Origin` nicht und verlässt sich auf `SameSite=Lax`.
+  - Die Registrierung ist auch mit bestehender Sitzung aufrufbar.
+  - Jeder kann eine bekannte Adresse mit 5 Fehlversuchen für 15 Minuten sperren (so entschieden in der Spec).
+  - Es gibt keinen `Content-Security-Policy`-Kopf.
+  - Bei einem Konto ohne Träger lautet der Seitentitel weiterhin „Lizenzübersicht – Lizenzzentrale“.
+  - Außerhalb von PROJ-1: Beispielzeile unter INDEX → Deployments, `/favicon.ico` liefert 404, `passWithNoTests`.
 
 ## Zusammenfassung
-- **Akzeptanzkriterien:** 10 von 13 bestanden, 3 fehlgeschlagen (AC-6, AC-8 durch BUG-2; AC-12 durch BUG-1). Die Browser-Teile von AC-2, AC-7 und AC-10 sind NOT VERIFIED.
-- **Edge Cases:** 9 von 10 bestanden (bei EC-1, EC-3, EC-8 und EC-10 ist der Browserteil NOT VERIFIED), EC-9 NOT VERIFIED.
-- **Bugs:** 8 insgesamt (0 Critical, 2 High, 0 Medium, 6 Low). Open: 2 (BUG-1, BUG-2), Deferred: 6 (BUG-3 bis BUG-8, vom Nutzer entschieden).
-- **Security:** 15 Prüfpunkte. 11 geprüft und bestanden, 3 geprüft mit Bug (Brute force und Massen-Registrierung durch BUG-2, `[user]`-Einstellung T4 durch BUG-1), 1 NOT VERIFIED (Rate limiting auf gewöhnlichen Endpunkten, nicht implementiert). Nicht prüfbar waren außerdem: ein abgelehntes Turnstile-Token, die go-live-Einstellungen, `X-Forwarded-For` hinter einem Host und Supabases eigene Grenzen.
-- **Production Ready:** NEIN
-- **Empfehlung:** Erst BUG-1 und BUG-2 beheben (`/build PROJ-1`), dann `/qa` erneut.
+- **Akzeptanzkriterien:** 9 in diesem Lauf geprüft, 4 übernommen.
+  - Ohne Befund: AC-1, AC-2, AC-3, AC-4, AC-5, AC-7, AC-12.
+  - AC-6 und AC-8 bestehen in ihrem Kern (Sperre pro Adresse, Sperre nach 20 bzw. 5, nicht per Kopf umgehbar). Beide tragen BUG-9 (Medium, nicht blockierend).
+  - Übernommen und am 2026-10-25 bestanden: AC-9, AC-10, AC-11, AC-13. Der Code dafür ist unverändert, AC-9 und AC-10 sind zusätzlich stichprobenartig geprüft.
+  - Die Browser-Teile von AC-2 und AC-10 sowie ein abgelehntes Token (AC-7) sind NOT VERIFIED.
+- **Edge Cases:**
+  - In diesem Lauf bestanden: EC-1, EC-2, EC-3, EC-4, EC-7 und EC-8 (jeweils der Server-Teil, die Browser-Teile von EC-1, EC-3 und EC-8 sind NOT VERIFIED).
+  - Übernommen: EC-5, EC-6, EC-10.
+  - EC-9 ist NOT VERIFIED.
+- **Bugs:** 9 insgesamt, davon 0 Critical und 0 High offen.
+  - Fixed und re-verifiziert: BUG-1, BUG-2 (beide High).
+  - Deferred: BUG-3 bis BUG-8 (Low, vom Nutzer entschieden).
+  - Neu: BUG-9 (Medium), Deferred (vom Nutzer entschieden).
+- **Security:** 17 Prüfpunkte.
+  - 13 in diesem Lauf geprüft. 11 davon bestanden, 2 mit BUG-9: Brute force pro IP und Massen-Registrierung.
+  - 3 übernommen vom 2026-10-25: Authorization, direkter Weg zu Supabase, CSRF.
+  - 1 NOT VERIFIED: Rate limiting auf gewöhnlichen Endpunkten, nicht implementiert.
+  - Nicht prüfbar waren außerdem ein abgelehntes Turnstile-Token, die go-live-Einstellungen, der Weg hinter einem echten Proxy und die Dashboard-Einstellung T4 selbst (nur ihre Wirkung).
+- **Production Ready:** JA. Es gibt keinen offenen Critical- oder High-Bug, und die Laufzeit-Kriterien wurden gegen die laufende App geprüft.
+- **Empfehlung:**
+  - BUG-9 auflösen, am saubersten per `/refine PROJ-1`, damit Spec und Entscheidung wieder übereinstimmen.
+  - T31 abhaken.
 
-> „Production Ready: JA“ hieße nur, dass es keine Critical-/High-Bugs gibt, nicht, dass alles geprüft wurde. Jeder NOT-VERIFIED-Punkt oben bleibt offen und braucht einen Menschen oder `/e2e-tests`.
+> „Production Ready: JA“ heißt nur, dass es keine Critical- oder High-Bugs gibt, nicht, dass alles geprüft wurde. Jeder NOT-VERIFIED-Punkt oben bleibt offen und braucht einen Menschen oder `/e2e-tests`.

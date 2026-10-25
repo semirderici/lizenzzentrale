@@ -361,6 +361,10 @@ describe('IP-Adresse ohne vertrauenswürdigen Proxy', () => {
   it.each([
     ['nicht gesetzt', undefined],
     ['nicht genau „true“', '1'],
+    // Only the exact value counts; a near miss must not open the header to the client (QA).
+    ['in Großbuchstaben', 'TRUE'],
+    ['mit Leerzeichen am Rand', ' true '],
+    ['leer', ''],
   ])('ignoriert einen selbst gesetzten X-Forwarded-For, wenn TRUSTED_PROXY %s ist (AC-6, AC-8)', async (_case, value) => {
     vi.stubEnv('TRUSTED_PROXY', value)
     request.forwardedFor = '203.0.113.1, 8.8.4.4'
