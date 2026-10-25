@@ -366,3 +366,15 @@ Codebase-Karte: entfällt (`mode: new`, kein `docs/codebase/`).
 ## Offene Fragen (Open Questions)
 
 - Keine technischen. Die rechtlichen Fragen stehen in `spec.md`.
+
+## Umsetzungsnotizen (`/build`, 2026-10-25)
+
+- **Am gehosteten Projekt bestätigt** (`src/test/db/licenses.test.ts`, 23 Tests):
+  - Der Trigger läuft für `authenticated`, obwohl das Ausführen der Prüffunktion entzogen ist, und `authenticated` darf die Transaktionssperre setzen.
+  - Von fünf gleichzeitigen Anlagen auf die letzte freie Lizenz gelingt genau eine. Von drei gleichzeitigen Anlagen derselben Adresse gelingt genau eine, die anderen enden mit `23505`.
+  - Eine Anlage für einen fremden Träger endet immer mit `42501`.
+  - Die Beispieladressen werden von Schema und Spalte gleich angenommen.
+- **Kontingent-Balken:** Das installierte `src/components/ui/progress.tsx` gibt `value` nicht an Radix weiter. `quota-summary.tsx` setzt `aria-valuenow` und `aria-valuetext` deshalb selbst. `progress.tsx` bleibt unverändert.
+- **Antwort ohne Ergebnis:** `thrownFeedback()` in `licenses.rules.ts` erkennt „Keine Verbindung“ mit derselben Regel wie `isConnectionError()` (`TypeError`), damit die Zuordnung zur Meldung rein und testbar bleibt. Die Weiterleitung erkennen die Dialoge vorher mit `isRedirectError()`.
+- **Karte auf dem Smartphone:** Unter der Adresse steht „Zugewiesen am TT.MM.JJJJ“, weil die Karte keinen Spaltenkopf hat.
+- **Kontingent-Hinweis:** Die shadcn-`alert` trägt `role="alert"`, wie die Hinweisbox aus PROJ-1 EC-5.

@@ -127,7 +127,7 @@
 
 <!-- Braucht die Dialoge aus Stufe 4. Ohne [P]: T11 baut die Liste aus T10 ein, deshalb laufen die beiden nacheinander. -->
 
-- [ ] T10  Lizenzliste  · files: src/features/licenses/components/license-list.tsx, src/features/licenses/components/license-list.test.tsx  · → AC-2, AC-3, AC-8, EC-4, EC-8
+- [x] T10  Lizenzliste  · files: src/features/licenses/components/license-list.tsx, src/features/licenses/components/license-list.test.tsx  · → AC-2, AC-3, AC-8, EC-4, EC-8
   - Bekommt Liste und Zustand als Wert und importiert nie `licenses.data.ts`.
   - Abschnitt „Vergebene Lizenzen“ (type-section).
   - Ab `md` Tabelle (shadcn `table`) mit den Spaltenköpfen „E-Mail-Adresse“, „Zugewiesen am“ und „Aktion“ (nur Screenreader). Die Spalte für die Einladung kommt mit PROJ-3 vor „Aktion“. In jeder Zeile steht `revoke-license-dialog` in der kleinen Darstellung.
@@ -135,7 +135,7 @@
   - Das Datum steht in einem `time`-Element mit dem vollen Zeitpunkt. Die Adresse ist reiner Text und darf an jeder Stelle umbrechen. Spalte und Knopf „Entziehen“ schrumpfen nie, es gibt kein seitliches Scrollen.
   - Leer und mindestens eine Lizenz frei: gedämpftes Symbol, „Noch keine Lizenz vergeben. Weisen Sie die erste zu.“ und `assign-license-dialog` in der Art „leerer Zustand“ (AC-3). Bei Kontingent 0 entfällt der Abschnitt ganz (EC-4).
   - Tests: Reihenfolge wie übergeben, beide Fassungen vorhanden, leerer Zustand, kein Abschnitt bei 0 von 0, lange Adresse als Text.
-- [ ] T11  Seite Lizenzübersicht zusammensetzen  · files: src/app/(app)/licenses/page.tsx  · → AC-1, AC-2, AC-3, AC-7, AC-9, EC-4, EC-6
+- [x] T11  Seite Lizenzübersicht zusammensetzen  · files: src/app/(app)/licenses/page.tsx  · → AC-1, AC-2, AC-3, AC-7, AC-9, EC-4, EC-6
   - Ersetzt den Platzhalter aus PROJ-1. Seitentitel und `dynamic = 'force-dynamic'` bleiben.
   - Ablauf: Wächter → bei „nicht zugeordnet“ nichts (die Hinweisbox kommt aus dem Rahmen) → `listLicenses` mit der Träger-ID aus dem Wächter → Zustand aus T2 mit `license_quota` aus dem Wächter.
   - Ladefehler: unter dem Titel nur `licenses-load-error`, ohne Hauptaktion, Anzeige und Liste (EC-6).
