@@ -96,7 +96,7 @@
 
 <!-- Braucht die Actions aus Stufe 3 und den geteilten Baustein aus T4. Die beiden Dialoge teilen sich keine Datei, deshalb beide [P]. -->
 
-- [ ] T8 [P]  Dialog „Lizenz zuweisen“  · files: src/features/licenses/components/assign-license-dialog.tsx, src/features/licenses/components/assign-license-dialog.test.tsx  · → AC-3, AC-4, AC-5, AC-6, AC-7, AC-9, EC-1, EC-2, EC-4, EC-5, EC-7
+- [x] T8 [P]  Dialog „Lizenz zuweisen“  · files: src/features/licenses/components/assign-license-dialog.tsx, src/features/licenses/components/assign-license-dialog.test.tsx  · → AC-3, AC-4, AC-5, AC-6, AC-7, AC-9, EC-1, EC-2, EC-4, EC-5, EC-7
   - Client. Werte: gesperrt ja/nein, Art des Knopfs. Als Hauptaktion steht er rechts, auf dem Smartphone in voller Breite. Im leeren Zustand ist er `outline`. Ist er gesperrt, verweist er für Screenreader auf die Hinweis-ID aus T2.
   - Beim Öffnen: Feld leer, kein Fehler, Fokus im Feld. Feld „E-Mail-Adresse des Teilnehmers“: Typ E-Mail, Autovervollständigen aus, 44 px hoch, 16 px Schrift. Feldfehler darunter mit Symbol (`FieldMessage` aus T4).
   - Absenden wie in PROJ-1: `method="post"`, der Handler verhindert das native Absenden, prüft mit dem Schema aus T2 und ruft `assignLicense` auf.
@@ -110,7 +110,7 @@
     - Weiterleitung (`isRedirectError`) ist kein Fehler, `TypeError` gilt als „Keine Verbindung“.
   - Auf dem Smartphone stehen „Abbrechen“ und „Zuweisen“ untereinander in voller Breite.
   - Die Tests bilden die Action nach und decken jede Zeile der Ergebnistabelle ab, dazu Doppelklick (nur ein Aufruf) und Fokus beim Öffnen.
-- [ ] T9 [P]  Entziehen mit Bestätigungsdialog  · files: src/features/licenses/components/revoke-license-dialog.tsx, src/features/licenses/components/revoke-license-dialog.test.tsx  · → AC-8, EC-3, EC-5, EC-7, EC-8
+- [x] T9 [P]  Entziehen mit Bestätigungsdialog  · files: src/features/licenses/components/revoke-license-dialog.tsx, src/features/licenses/components/revoke-license-dialog.test.tsx  · → AC-8, EC-3, EC-5, EC-7, EC-8
   - Client. Werte: Lizenz-ID, Adresse, Darstellung (klein oder volle Breite).
   - Knopf `destructive`, sichtbarer Text „Entziehen“, für Screenreader „Lizenz von <Adresse> entziehen“. Klein: 36 px gezeichnet, Tippfläche 44 × 44 px. Volle Breite: 44 px hoch.
   - Bestätigungsdialog (shadcn `alert-dialog`): Titel „Lizenz von <Adresse> entziehen?“ als reiner Text, der an jeder Stelle umbrechen darf, dazu der Text „Die Lizenz ist danach sofort wieder frei.“. „Abbrechen“ hat beim Öffnen den Fokus.
