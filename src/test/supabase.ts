@@ -2,7 +2,7 @@
 // Test accounts are created and signed in through the admin key, because the Supabase CAPTCHA
 // (tasks.md T18) rejects every sign-in with the public key. Each test file deletes what it created
 // with deleteTestAccounts() in afterAll.
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type Session } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
 
 const clientOptions = {
@@ -60,9 +60,11 @@ export type TestAccount = {
   userId: string
   email: string
   password: string
-  accessToken: string
 }
 
+export type SignedInTestAccount = TestAccount & { accessToken: string }
+
+/** Creates the account without signing it in: sign-ins count against Supabase's own limit. */
 export async function createTestAccount(
   options: { email?: string; userMetadata?: Record<string, unknown> } = {}
 ): Promise<TestAccount> {
@@ -76,17 +78,42 @@ export async function createTestAccount(
   })
   if (error) throw error
   registerForCleanup(data.user.id)
+  return { userId: data.user.id, email, password }
+}
 
-  const accessToken = await signInAsTestAccount(email, password)
-  return { userId: data.user.id, email, password, accessToken }
+export async function createSignedInTestAccount(
+  options: { email?: string; userMetadata?: Record<string, unknown> } = {}
+): Promise<SignedInTestAccount> {
+  const account = await createTestAccount(options)
+  return { ...account, accessToken: await signInAsTestAccount(account.email, account.password) }
+}
+
+/**
+ * Supabase limits sign-ins per IP (bursts of about 30, design.md → Hinweise für /qa). The test
+ * files run in parallel, so a sign-in that hits the limit waits briefly and tries again.
+ */
+export async function signInTestSession(email: string, password: string): Promise<Session> {
+  for (let attempt = 0; ; attempt++) {
+    // A fresh client for every sign-in: after signInWithPassword a client sends the user's token
+    // instead of its own key, which would quietly turn the admin client into a user client.
+    const { data, error } = await createAdminTestClient().auth.signInWithPassword({ email, password })
+    if (!error) return data.session
+    if (error.code !== 'over_request_rate_limit' || attempt >= 5) throw error
+    await new Promise((resolve) => setTimeout(resolve, 2_000 * (attempt + 1)))
+  }
 }
 
 export async function signInAsTestAccount(email: string, password: string) {
-  // A fresh client for every sign-in: after signInWithPassword a client sends the user's token
-  // instead of its own key, which would quietly turn the admin client into a user client.
-  const { data, error } = await createAdminTestClient().auth.signInWithPassword({ email, password })
+  return (await signInTestSession(email, password)).access_token
+}
+
+/** Whether an account with this address exists, asked the way the app asks (EC-2). */
+export async function isRegistered(email: string) {
+  const { data, error } = await createAdminTestClient().rpc('license_center_email_registered', {
+    p_email: email,
+  })
   if (error) throw error
-  return data.session.access_token
+  return data as boolean
 }
 
 export async function deleteTestAccounts() {

@@ -6,6 +6,7 @@ import { randomBytes } from 'node:crypto'
 import {
   createAdminTestClient,
   createAnonTestClient,
+  createSignedInTestAccount,
   createTestAccount,
   createUserTestClient,
   deleteTestAccounts,
@@ -188,7 +189,7 @@ describe('Zugriff auf die Bremsfunktionen', { timeout: TIMEOUT }, () => {
   ]
 
   it('anon und authenticated dürfen keine der fünf Funktionen aufrufen', async () => {
-    const account = await createTestAccount()
+    const account = await createSignedInTestAccount()
     const clients = { anon: createAnonTestClient(), authenticated: createUserTestClient(account.accessToken) }
 
     for (const [role, client] of Object.entries(clients)) {

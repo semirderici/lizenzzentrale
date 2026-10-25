@@ -80,23 +80,23 @@
 
 <!-- Braucht die Datenbank aus Stufe 1 und Admin-Client und Cookie-Regeln aus Stufe 2. Alle Dateisätze sind disjunkt, deshalb sind alle Aufgaben [P]. -->
 
-- [ ] T16 [user]  E-Mail-Bestätigung aus  · where: Supabase → Authentication → Sign In / Providers → Email → „Confirm email“ → **aus**  · → AC-1, AC-3
-- [ ] T17 [user]  Mindestlänge Passwort  · where: Supabase → Authentication → Sign In / Providers → Email → „Minimum password length“ (je nach Stand des Dashboards auch unter Attack Protection) → **8**, keine Pflicht zu Zeichenarten  · → AC-2
-- [ ] T18 [user]  CAPTCHA in Supabase mit dem immer scheiternden Test-Secret  · where: Supabase → Authentication → Attack Protection → „Enable Captcha protection“ → an, Anbieter Cloudflare Turnstile, Secret `2x0000000000000000000000000000000AA`  · → AC-6, AC-7, AC-8
-- [ ] T19 [P]  Bremsen-Datenzugriff  · files: src/features/account/throttle.data.ts, src/features/account/throttle.data.test.ts  · → AC-6, AC-8, EC-2, EC-7
+- [x] T16 [user]  E-Mail-Bestätigung aus  · where: Supabase → Authentication → Sign In / Providers → Email → „Confirm email“ → **aus**  · → AC-1, AC-3
+- [x] T17 [user]  Mindestlänge Passwort  · where: Supabase → Authentication → Sign In / Providers → Email → „Minimum password length“ (je nach Stand des Dashboards auch unter Attack Protection) → **8**, keine Pflicht zu Zeichenarten  · → AC-2
+- [x] T18 [user]  CAPTCHA in Supabase mit dem immer scheiternden Test-Secret  · where: Supabase → Authentication → Attack Protection → „Enable Captcha protection“ → an, Anbieter Cloudflare Turnstile, Secret `2x0000000000000000000000000000000AA`  · → AC-6, AC-7, AC-8
+- [x] T19 [P]  Bremsen-Datenzugriff  · files: src/features/account/throttle.data.ts, src/features/account/throttle.data.test.ts  · → AC-6, AC-8, EC-2, EC-7
   - `server-only`. Ruft die fünf Funktionen aus T6 über den Admin-Client auf und liefert typisierte Antworten: „erlaubt“ mit Versuchsnummer, „gesperrt bis“ mit Zeitpunkt, ja oder nein bei `license_center_email_registered`. Ein Datenbankfehler wird zu einem Fehlerergebnis, nie zu „erlaubt“.
-- [ ] T20 [P]  Auth-Datenzugriff  · files: src/features/account/auth.data.ts, src/features/account/auth.data.test.ts  · → AC-1, AC-3, AC-4, AC-7, AC-10
+- [x] T20 [P]  Auth-Datenzugriff  · files: src/features/account/auth.data.ts, src/features/account/auth.data.test.ts  · → AC-1, AC-3, AC-4, AC-7, AC-10
   - `server-only`. Registriert und prüft Passwörter über den Admin-Client. Beim Registrieren gehen die normalisierte Adresse, das unveränderte Passwort und `training_provider_name` in den Registrierungsdaten mit. Die gelieferte Sitzung kommt in die Cookies der Nutzersitzung. Abgemeldet wird mit Scope `local`.
   - Mögliche Ergebnisse: Erfolg, schon registriert, Supabases eigene Grenze, Passwort abgelehnt, falsche Zugangsdaten, sonstiger Fehler.
   - Tests am gehosteten Projekt (offene Frage aus design.md): Über den Admin-Schlüssel klappen Registrierung und Login. Direkt mit dem öffentlichen Schlüssel enden beide mit `captcha_failed`, das setzt T18 voraus.
-- [ ] T21 [P]  Wächter, die Schnittstelle für PROJ-2  · files: src/features/account/session.data.ts, src/features/account/session.data.test.ts  · → AC-4, AC-9, AC-11, EC-5, EC-6
+- [x] T21 [P]  Wächter, die Schnittstelle für PROJ-2  · files: src/features/account/session.data.ts, src/features/account/session.data.test.ts  · → AC-4, AC-9, AC-11, EC-5, EC-6
   - `getCurrentAdmin()` liefert einen von drei Zuständen:
     - abgemeldet
     - nicht zugeordnet, mit Konto-ID
     - zugeordnet: Konto-ID, Rolle und Träger mit ID, Name und Kontingent
   - Gelesen wird immer mit der Nutzersitzung, also durch die Leseregeln, nie mit dem Admin-Client.
   - `requireTrainingProvider()` leitet bei „abgemeldet“ auf `/login?reason=session` weiter und liefert sonst das Ergebnis. Beide laufen pro Anfrage nur einmal.
-- [ ] T22 [P]  Tor  · files: src/proxy.ts, src/proxy.test.ts  · → AC-9, AC-10, EC-6
+- [x] T22 [P]  Tor  · files: src/proxy.ts, src/proxy.test.ts  · → AC-9, AC-10, EC-6
   - Läuft bei jeder Anfrage außer den statischen Dateien von Next.js und Bildern. Frischt die Sitzung mit den Cookie-Regeln aus T11 auf und fragt den Auth-Server (`getUser`).
   - Weiterleitungen nur bei GET und HEAD:
     - `/` → `/licenses` oder `/login`, je nach Sitzung

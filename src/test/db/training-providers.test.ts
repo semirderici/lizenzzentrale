@@ -4,11 +4,12 @@
 import {
   createAdminTestClient,
   createAnonTestClient,
+  createSignedInTestAccount,
   createTestAccount,
   createUserTestClient,
   deleteTestAccounts,
+  isRegistered,
   registerForCleanup,
-  signInAsTestAccount,
   uniqueEmail,
   uniquePassword,
 } from '@/test/supabase'
@@ -26,19 +27,13 @@ async function trainingProviderIdOf(userId: string) {
   return data.training_provider_id as string
 }
 
-async function expectNoAccount(email: string, password: string) {
-  await expect(signInAsTestAccount(email, password)).rejects.toMatchObject({
-    code: 'invalid_credentials',
-  })
-}
-
 afterAll(async () => {
   await deleteTestAccounts()
 }, TIMEOUT)
 
 describe('Registrierung legt Träger und Mitgliedschaft an', { timeout: TIMEOUT }, () => {
   it('Kontingent ist 5 und die Rolle admin, auch wenn die Registrierungsdaten anderes mitschicken (AC-1)', async () => {
-    const account = await createTestAccount({
+    const account = await createSignedInTestAccount({
       userMetadata: { training_provider_name: '  Akademie Nord  ', license_quota: 999, role: 'owner' },
     })
     const user = createUserTestClient(account.accessToken)
@@ -62,9 +57,10 @@ describe('Registrierung legt Träger und Mitgliedschaft an', { timeout: TIMEOUT 
   it('Namen mit 2 und mit 100 Zeichen (gezählt wie char_length, auch mit Umlauten) sind gültig (AC-2)', async () => {
     for (const name of ['AB', 'ä'.repeat(100)]) {
       const account = await createTestAccount({ userMetadata: { training_provider_name: name } })
-      const provider = await createUserTestClient(account.accessToken)
+      const provider = await createAdminTestClient()
         .from('training_providers')
         .select('name')
+        .eq('id', await trainingProviderIdOf(account.userId))
         .single()
       expect(provider.data).toEqual({ name })
     }
@@ -88,13 +84,13 @@ describe('Registrierung legt Träger und Mitgliedschaft an', { timeout: TIMEOUT 
 
     expect(error).not.toBeNull()
     expect(data.user).toBeNull()
-    await expectNoAccount(email, password)
+    expect(await isRegistered(email)).toBe(false)
   })
 })
 
 describe('Zugriffsregeln (AC-11)', { timeout: TIMEOUT }, () => {
   it('A sieht nur den eigenen Träger und die eigene Mitgliedschaft, nie eine Zeile von B', async () => {
-    const a = await createTestAccount({ userMetadata: { training_provider_name: 'Träger A' } })
+    const a = await createSignedInTestAccount({ userMetadata: { training_provider_name: 'Träger A' } })
     const b = await createTestAccount({ userMetadata: { training_provider_name: 'Träger B' } })
     const providerIdA = await trainingProviderIdOf(a.userId)
     const providerIdB = await trainingProviderIdOf(b.userId)
@@ -114,7 +110,7 @@ describe('Zugriffsregeln (AC-11)', { timeout: TIMEOUT }, () => {
   })
 
   it('jeder Schreibversuch von A scheitert am fehlenden Recht, und nichts ändert sich', async () => {
-    const a = await createTestAccount({ userMetadata: { training_provider_name: 'Träger A' } })
+    const a = await createSignedInTestAccount({ userMetadata: { training_provider_name: 'Träger A' } })
     const b = await createTestAccount({ userMetadata: { training_provider_name: 'Träger B' } })
     const providerIdA = await trainingProviderIdOf(a.userId)
     const providerIdB = await trainingProviderIdOf(b.userId)
@@ -190,7 +186,7 @@ describe('Löschen durch den Anbieter', { timeout: TIMEOUT }, () => {
   })
 
   it('wird nur der Träger gelöscht, bleibt das Konto ohne Mitgliedschaft, und der Trigger verträgt das (EC-5)', async () => {
-    const account = await createTestAccount()
+    const account = await createSignedInTestAccount()
     const providerId = await trainingProviderIdOf(account.userId)
     const admin = createAdminTestClient()
 
