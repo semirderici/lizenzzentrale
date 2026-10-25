@@ -151,7 +151,7 @@
   - Grundlage: design.md → Footprint.
 - [ ] T29 [user go-live]  Eigenes Turnstile-Widget  · where: Cloudflare-Dashboard → Turnstile → Add widget (Domain der App, Modus Managed); Site-Key und Secret in die Umgebung des Hosts. **Das Secret in Supabase bleibt das immer scheiternde Test-Secret.**  · → AC-7
 - [ ] T30 [user go-live]  Auftragsverarbeitungsverträge akzeptieren  · where: Supabase → Organization Settings → Legal Documents; Cloudflare-Konto  · → keine AC (Art. 28 DSGVO, `docs/privacy.md`)
-- [ ] T31 [user]  Platzhalter für den Proxy-Schalter dokumentieren (aus dem Bugfix BUG-2)  · where: `.env.local.example` (der Agent darf die Datei nicht bearbeiten) → `TRUSTED_PROXY=false`  · → AC-6, AC-8
+- [x] T31 [user]  Platzhalter für den Proxy-Schalter dokumentieren (aus dem Bugfix BUG-2)  · where: `.env.local.example` (der Agent darf die Datei nicht bearbeiten) → `TRUSTED_PROXY=false`  · → AC-6, AC-8
 - [ ] T32 [user go-live]  Proxy-Schalter setzen (aus dem Bugfix BUG-2)  · where: Umgebung des Hosts → `TRUSTED_PROXY=true`, **nur** wenn der Host `X-Forwarded-For` selbst setzt bzw. überschreibt (design.md → Einstellungen durch den Nutzer)  · → AC-6, AC-8
 
 ## Parallelisierung
