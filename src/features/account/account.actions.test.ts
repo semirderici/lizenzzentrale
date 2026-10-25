@@ -47,6 +47,8 @@ const validLogin = { email: ' Verwalter@Akademie-Nord.DE', password: ' Geheim 12
 
 beforeEach(() => {
   vi.useFakeTimers()
+  // Behind a proxy that writes the header; the block at the end covers running without one.
+  vi.stubEnv('TRUSTED_PROXY', 'true')
   request.forwardedFor = '8.8.8.8'
   vi.mocked(verifyTurnstileToken).mockResolvedValue('passed')
   vi.mocked(beginRegistration).mockResolvedValue({ status: 'allowed', attemptId: 11 })
@@ -61,6 +63,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
   vi.clearAllMocks()
+  vi.unstubAllEnvs()
 })
 
 /** Runs the action with fake time and returns its answer plus the time it took. */
@@ -217,7 +220,7 @@ describe('register', () => {
     ['den letzten gültigen Eintrag', '203.0.113.1, 8.8.4.4', '8.8.4.4', '8.8.4.4'],
     ['eine private Adresse nicht an Cloudflare', '10.0.0.5', '10.0.0.5', undefined],
     ['ohne Kopf die Ersatzadresse', null, '0.0.0.0', undefined],
-  ])('nimmt aus X-Forwarded-For %s (Bremse und Bot-Prüfung)', async (_case, header, brakeIp, cloudflareIp) => {
+  ])('nimmt hinter einem vertrauenswürdigen Proxy aus X-Forwarded-For %s (Bremse und Bot-Prüfung)', async (_case, header, brakeIp, cloudflareIp) => {
     request.forwardedFor = header
 
     await expect(register(validRegistration)).rejects.toThrow('NEXT_REDIRECT')
@@ -349,5 +352,26 @@ describe('login', () => {
     await loginWith(validLogin)
     expect(verifyTurnstileToken).toHaveBeenCalledWith('token-1', undefined)
     expect(beginLogin).toHaveBeenCalledWith('verwalter@akademie-nord.de', '127.0.0.1')
+  })
+})
+
+// BUG-2: without a proxy in front, the client writes X-Forwarded-For itself and could pick a
+// fresh address for every attempt. Every request then counts under the same stand-in address.
+describe('IP-Adresse ohne vertrauenswürdigen Proxy', () => {
+  it.each([
+    ['nicht gesetzt', undefined],
+    ['nicht genau „true“', '1'],
+  ])('ignoriert einen selbst gesetzten X-Forwarded-For, wenn TRUSTED_PROXY %s ist (AC-6, AC-8)', async (_case, value) => {
+    vi.stubEnv('TRUSTED_PROXY', value)
+    request.forwardedFor = '203.0.113.1, 8.8.4.4'
+    vi.mocked(signInWithPassword).mockResolvedValue({ status: 'invalid_credentials' })
+
+    await expect(register(validRegistration)).rejects.toThrow('NEXT_REDIRECT')
+    await loginWith(validLogin)
+
+    expect(beginRegistration).toHaveBeenCalledWith('0.0.0.0')
+    expect(beginLogin).toHaveBeenCalledWith('verwalter@akademie-nord.de', '0.0.0.0')
+    expect(verifyTurnstileToken).toHaveBeenNthCalledWith(1, 'token-1', undefined)
+    expect(verifyTurnstileToken).toHaveBeenNthCalledWith(2, 'token-1', undefined)
   })
 })

@@ -35,6 +35,8 @@ Alle Auth-Einstellungen kommen von Hand ins Dashboard. `supabase/config.toml` gi
 
 **Warum ein CAPTCHA-Secret, das immer scheitert:** Die App prüft das Turnstile-Token selbst und ruft Supabase danach mit dem geheimen Server-Schlüssel auf, den Supabase vom CAPTCHA ausnimmt. Supabase lehnt so jede direkte Registrierung und Anmeldung mit dem öffentlichen Schlüssel ab, und jeder Versuch läuft durch die Bot-Prüfung und die Bremsen der App. Dort deshalb nie ein echtes oder ein immer bestehendes Secret eintragen, auch nicht mit eigenen Turnstile-Schlüsseln: Sonst kämen direkte Anmeldungen an der Login-Sperre der App vorbei.
 
+**Audit-Log:** `npm test` prüft, dass `auth.audit_log_entries` leer ist. War die Einstellung schon einmal an, im SQL-Editor einmal `delete from auth.audit_log_entries;` ausführen.
+
 ### 4. Umgebungsvariablen
 
 ```bash
@@ -57,6 +59,8 @@ TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY` und `TURNSTILE_SECRET_KEY`: Cloudflares offizielle Testschlüssel, die immer bestehen.
 
 Nicht verwechseln: In `.env.local` steht das Secret `1x…`, das immer besteht. Im Supabase-Dashboard steht das Secret `2x…`, das immer scheitert.
+
+`TRUSTED_PROXY` bleibt lokal `false` oder fehlt ganz. Dann ignoriert die App den Kopf `X-Forwarded-For`, den sonst jeder Client selbst setzen kann, und alle Anfragen zählen für die IP-Sperre als eine Adresse. `true` gehört nur hinter einen Host, der den Kopf selbst setzt.
 
 `.env.local` ist über `.gitignore` vom Repository ausgeschlossen. Nach einer Änderung an der Datei `npm run dev` neu starten.
 

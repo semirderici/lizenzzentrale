@@ -65,8 +65,14 @@ function inputErrors<Field extends string>(
   }
 }
 
+/**
+ * X-Forwarded-For counts only behind a proxy that writes it itself (TRUSTED_PROXY=true, set at
+ * go-live). Without one the client sets it and could pick a fresh address per attempt (BUG-2),
+ * so every request counts under the same stand-in address and the IP brake acts as one brake.
+ */
 async function visitorIp() {
-  return clientIpFrom((await headers()).get('x-forwarded-for'))
+  const trustedProxy = process.env.TRUSTED_PROXY === 'true'
+  return clientIpFrom(trustedProxy ? (await headers()).get('x-forwarded-for') : null)
 }
 
 export async function register(input: unknown): Promise<RegisterState> {

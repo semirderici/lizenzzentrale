@@ -227,8 +227,8 @@ Die Passwortregel „Mindestens 8 Zeichen.“ steht schon vor der Eingabe unter 
 
 ### IP-Adresse des Besuchers
 
-- Es zählt der **letzte** gültige Eintrag im Kopf `X-Forwarded-For`. Das ist der, den der Proxy des Hosts anhängt. Einträge davor kommen vom Client und zählen nie, `X-Real-IP` auch nicht (Lehre aus Plattform BUG-2).
-- Lokal ohne Proxy setzt Next.js die Adresse der Verbindung, wenn der Kopf fehlt.
+- **Ohne vertrauenswürdigen Proxy (Standard, lokal):** Die App liest `X-Forwarded-For` nicht. Den Kopf setzt dann der Client selbst, und Next.js ergänzt die Adresse der Verbindung nur, wenn er fehlt. Jede Anfrage zählt deshalb unter der Ersatzadresse `0.0.0.0`, und die IP-Sperre wirkt als eine gemeinsame Bremse für alle (BUG-2).
+- **Hinter einem Proxy, der den Kopf selbst setzt (`TRUSTED_PROXY=true`, go-live):** Es zählt der **letzte** gültige Eintrag im Kopf `X-Forwarded-For`. Das ist der, den der Proxy des Hosts anhängt. Einträge davor kommen vom Client und zählen nie, `X-Real-IP` auch nicht (Lehre aus Plattform BUG-2). Jeder andere Wert als genau `true` gilt als „kein Proxy“.
 - Kein gültiger Eintrag → Ersatzadresse `0.0.0.0`.
 - An Cloudflare geht die IP nur mit, wenn sie öffentlich ist: nicht `0.0.0.0`, nicht Loopback und kein privates Netz.
 
@@ -418,6 +418,8 @@ Dazu kommen die Feldmeldungen aus „Eingaberegeln“. Abgrenzung EC-3 gegen EC-
 - **AC-7:** Eine Anfrage an die Action ohne Token wird von der App abgelehnt. Eine direkte Anfrage an Supabase (`/auth/v1/signup`, `/auth/v1/token?grant_type=password`) mit dem öffentlichen Schlüssel endet mit `captcha_failed`. Ein abgelehntes Token testet man, indem man in `.env.local` kurz das immer scheiternde Test-Secret `2x0000000000000000000000000000000AA` als `TURNSTILE_SECRET_KEY` einträgt.
 - **AC-6:** Supabase begrenzt Passwort-Logins im gehosteten Projekt auf 150 pro 5 Minuten und IP (Schübe bis 30). 25 schnelle Versuche liegen darunter.
 - **AC-13:** Einträge mit zurückdatiertem Zeitpunkt anlegen und die Aufräumfunktion im SQL-Editor aufrufen. Oder den stündlichen Lauf abwarten.
+- **AC-6, AC-8 ohne Proxy:** Lokal zählen alle Anfragen unter `0.0.0.0`, ein selbst gesetztes `X-Forwarded-For` ändert daran nichts. Die IP-Sperre greift also nach 20 Fehlversuchen bzw. 5 Registrierungen **aller** Tests zusammen. Zwischen Testblöcken die eigenen Einträge zu `0.0.0.0` in `private.license_center_login_attempts`, `private.license_center_login_lockouts` und `private.license_center_registration_attempts` per `supabase db query` löschen. Den Weg hinter einem Proxy (`TRUSTED_PROXY=true`) decken die Tests in `account.actions.test.ts` ab.
+- **AC-12, Audit-Log:** `auth.data.test.ts` → „Audit-Log nicht in der Datenbank (tasks.md T4)“ erwartet `auth.audit_log_entries` leer, gelesen über Supabases Admin-Endpunkt `GET /auth/v1/admin/audit`.
 
 ## Abhängigkeiten (Dependencies)
 
@@ -444,6 +446,8 @@ Supabase läuft mit der Strategie `single`: Es gibt nur das gehostete Projekt, u
 | Supabase-CLI verbinden | Terminal: `supabase login`, dann `supabase link --project-ref <ref>` (fragt nach dem Datenbank-Passwort) | now | — | `/build` spielt die Migrationen mit `supabase db push` ins Projekt | alle |
 | Eigenes Turnstile-Widget | Cloudflare-Dashboard → Turnstile → Add widget (Domain der App, Modus Managed); Site-Key und Secret in die Umgebung des Hosts | go-live | echte Schlüssel. **Das Secret in Supabase bleibt das immer scheiternde Test-Secret.** Mit einem echten Secret dort käme ein direkter Login mit gelöstem CAPTCHA an der Bremse vorbei. | Bot-Prüfung mit echter Wirkung | AC-7 |
 | Auftragsverarbeitungsverträge | Supabase → Organization Settings → Legal Documents; Cloudflare-Konto | go-live | akzeptiert | `docs/privacy.md` | — |
+| Platzhalter für den Proxy-Schalter | `.env.local.example` (der Agent darf sie nicht bearbeiten) | now | `TRUSTED_PROXY=false` | dokumentiert die Variable aus BUG-2. Lokal bleibt sie aus oder fehlt. | AC-6, AC-8 |
+| Proxy-Schalter | Umgebung des Hosts → `TRUSTED_PROXY` | go-live | `true`, **nur** wenn der Host `X-Forwarded-For` selbst setzt bzw. überschreibt. Sonst weglassen. | Ohne den Schalter zählen gehostet alle Besucher als eine IP: 20 Fehlversuche irgendwo sperren den Login für alle. Mit dem Schalter hinter einem Host, der den Kopf durchreicht, ist die IP-Sperre wieder umgehbar. | AC-6, AC-8 |
 
 **Test-Gegenstück der go-live-Zeilen:** Cloudflares offizielle Testschlüssel. Damit braucht weder der Betreiber noch der Prüfer ein Cloudflare-Konto, um `/qa` zu durchlaufen.
 
@@ -470,6 +474,7 @@ Supabase läuft mit der Strategie `single`: Es gibt nur das gehostete Projekt, u
 | Jede Login-Antwort außer dem Erfolg kommt frühestens nach 1 Sekunde | Erfüllt die Technische Anforderung „Antwortzeit vergleichbar“. Supabase prüft für eine unbekannte Adresse kein Passwort und antwortet schneller (Befund der Plattform, BUG-5). 1 Sekunde deckt Bot-Prüfung, Bremse und Passwortprüfung gegen Frankfurt mit Abstand ab. | Keine Angleichung; 500 ms wie in der lokalen Plattform | Ein Tippfehler kostet eine Sekunde Wartezeit | 2026-10-21 |
 | Passwort höchstens 72 Zeichen und zusätzlich höchstens 72 Bytes, beim Login zählt eine längere Eingabe nicht als Fehlversuch | Supabase nimmt mehr als 72 Bytes nicht an (bcrypt). Umlaute zählen doppelt, sodass „72 Zeichen“ allein nicht reicht (Plattform BUG-9, BUG-16). | Nur 72 Zeichen (dann scheitert ein langes Umlaut-Passwort mit einem unklaren Fehler) | AC-2 nennt seit `/refine` vom 2026-10-21 die Grenze in Bytes. Die zusätzliche Prüfung auf 72 Zeichen ändert nichts an der Grenze (72 Bytes sind nie mehr als 72 Zeichen), sie liefert nur die verständlichere Meldung, wenn jemand einfach zu viele Zeichen tippt. | 2026-10-21 |
 | IP aus dem letzten Eintrag von `X-Forwarded-For`, sonst `0.0.0.0`; an Cloudflare nur öffentliche IPs | Frühere Einträge setzt der Client selbst (Plattform BUG-2). Eine Loopback- oder Ersatzadresse würde Cloudflare nur verwirren. | Erster Eintrag; `X-Real-IP` | Lokal ohne Proxy kann ein Client den Kopf selbst setzen. Die Adresssperre wirkt trotzdem. Beim Hosting prüfen (Offene Fragen). | 2026-10-21 |
+| Den Kopf `X-Forwarded-For` nur mit `TRUSTED_PROXY=true` lesen, sonst zählt jede Anfrage unter `0.0.0.0` (BUG-2, ersetzt die Zeile darüber für den Betrieb ohne Proxy) | Laut PRD läuft die App nur lokal, und dort steht kein Proxy davor. Next.js reicht einen vom Client gesetzten Kopf unverändert durch, an die Adresse der Verbindung kommt die App ohne eigenen Server nicht heran. Vom Client gewählte Adressen hebelten die IP-Sperre und die Registrierungsbremse aus. Entscheidung des Betreibers. | Eigener Node-Server, der den Kopf mit der Adresse der Verbindung überschreibt (mehr Code, anderer Startbefehl); den Kopf nie lesen (Code-Änderung beim Live-Gang); zurückstellen | Lokal ist die IP-Sperre eine gemeinsame Bremse: 20 Fehlversuche bzw. 5 Registrierungen von irgendwem sperren für alle. Ein Angreifer im lokalen Netz kann so den Login 15 Minuten blockieren. Das ist bewusst in Kauf genommen wie die Kontosperre als Hebel. | 2026-10-25 |
 | Vorsilbe `license_center_` für alles, was nur die eigenständige Lizenzzentrale braucht | Die Tabellen sollen in die Datenbank der Plattform wandern (PRD). Die Plattform hat schon `private.login_attempts`, `on_auth_user_created` und `handle_new_user`. Die Vorsilbe verhindert Kollisionen und zeigt, was nicht mitwandert. | Eigenes Schema | Lange Namen | 2026-10-21 |
 | Aufgeräumt wird stündlich mit `pg_cron` in der Datenbank, Grenze 23 Stunden | Erfüllt AC-13 streng: Kein Eintrag wird 24 Stunden alt. Läuft ohne weiteren Dienst und ist in jedem Supabase-Tarif enthalten. | Grenze 24 Stunden (dann bis zu 25 Stunden alt); Edge Function mit Zeitplan | Einträge verschwinden schon nach 23 bis 24 Stunden. Die Bremse braucht nur 60 Minuten. | 2026-10-21 |
 | Kein Custom-Access-Token-Hook | Der direkte Login ist schon durch das scheiternde CAPTCHA geschlossen. Ein Hook wäre eine Fehlerquelle mehr, die alle Logins blockieren kann. | Hook als zweite Linie wie in der Plattform | Hält jemand den Server-Schlüssel, hilft keine Sperre in Supabase. Der Schlüssel ist aber ohnehin der Generalschlüssel. | 2026-10-21 |
@@ -507,7 +512,7 @@ Supabase läuft mit der Strategie `single`: Es gibt nur das gehostete Projekt, u
 
 ## Offene Fragen (Open Questions)
 
-- [ ] **Vor einem Live-Gang:** Setzt der Host `X-Forwarded-For` selbst bzw. überschreibt er ihn? Sonst lässt sich die IP-Sperre durch einen selbst gesetzten Kopf umgehen. Die Adresssperre wirkt in jedem Fall.
+- [ ] **Vor einem Live-Gang:** Setzt der Host `X-Forwarded-For` selbst bzw. überschreibt er ihn? Nur dann `TRUSTED_PROXY=true` setzen (Einstellungen durch den Nutzer). Ohne den Schalter zählen alle Besucher als eine IP. Die Adresssperre wirkt in jedem Fall.
 - [ ] **Vor einem Live-Gang:** Gehostet sieht Supabase bei allen Aufrufen die IP des App-Servers. Seine eigenen IP-Grenzen (150 Passwort-Logins, 30 Registrierungen pro 5 Minuten) gelten dann für alle Besucher zusammen. Prüfen und unter Authentication → Rate Limits anheben, falls nötig.
 - [ ] **Restrisiko, beim Live-Gang bewerten:** Ein angemeldeter Verwalter kann über Supabases direkten Endpunkt (`PUT /auth/v1/user`) die eigene E-Mail-Adresse oder das eigene Passwort ändern. Die App bietet das nicht an (Out of Scope), es betrifft nur das eigene Konto, und Rechte hängen nicht an der Adresse.
 - [x] **Für `/build`, am gehosteten Projekt per Test bestätigen:** → alle vier bestätigt (`/build`, 2026-10-25, Belege unter „Umsetzungsnotizen“)
@@ -534,3 +539,21 @@ Supabase läuft mit der Strategie `single`: Es gibt nur das gehostete Projekt, u
 **Offen für `/qa`**
 - Es gibt kein eigenes `error.tsx`. Fällt das Lesen der Mitgliedschaft aus, wirft der Wächter, und Next.js zeigt seine Standard-Fehlerseite statt einer Hinweisbox mit „Erneut versuchen“ (`docs/app-shell.md` → Seitenmuster). Keine AC verlangt sie für PROJ-1.
 - Das Turnstile-Widget ist mindestens 300 px breit. Ab 375 px Bildschirmbreite passt es in die Karte; schmalere Geräte prüft `/qa`.
+
+## Bugfix-Lauf (`/build`, 2026-10-25): BUG-1, BUG-2
+
+**BUG-1, Audit-Log in der Datenbank**
+- Der Betreiber hat „Write audit logs to the database“ am 2026-10-25 erneut ausgeschaltet. Vorher wirkte T4 nicht.
+- Wirkung nachgewiesen: Registrierung, Abmeldung und Löschung eines Testkontos und zwei weitere Registrierungen erzeugten keine neue Zeile. Die neueste Zeile blieb die von 11:27:37 UTC.
+- Bestand gelöscht: `delete from auth.audit_log_entries` per `supabase db query --linked`. Gelöscht wurden 934 Zeilen, davon 922 zu gelöschten Konten, 0 übrig. Die Spalte `ip_address` war in allen 934 Zeilen leer (offene Frage aus dem QA-Bericht).
+- Fehlerart „abgehakte `[user]`-Einstellung ohne Prüfung ihrer Wirkung“: Durchsicht aller `[user]`-Aufgaben.
+  - T1 bis T3 und T8 wirken, sobald irgendein Integrationstest läuft.
+  - T16 belegt der AC-1-Test (sofort angemeldet), T18 der CAPTCHA-Test.
+  - Ohne Prüfung waren T4 und T17. Beide stehen jetzt in `auth.data.test.ts`.
+  - Der T4-Test war vor dem Löschen rot (934 Zeilen) und ist danach grün.
+  - Der T17-Test ist mit umgedrehten Erwartungen rot.
+
+**BUG-2, `X-Forwarded-For`**
+- Die Suche aus dem Bug fand 1 Codestelle (`account.actions.ts`, `visitorIp`). Sie liest den Kopf jetzt nur mit `TRUSTED_PROXY=true` (Entscheidungs-Log, 2026-10-25). `clientIpFrom` bleibt unverändert.
+- Der neue Test in `account.actions.test.ts` war auf dem alten Code rot: Die Bremse bekam die vom Client gewählte `8.8.4.4`. Die übrigen Tests der Datei laufen hinter einem vertrauenswürdigen Proxy (`beforeEach`).
+- Neue Variable `TRUSTED_PROXY`: Den Platzhalter in `.env.local.example` trägt der Betreiber ein (T31). Den Wert beim Live-Gang setzt `/deploy` (T32).

@@ -226,6 +226,48 @@ describe('Supabase-CAPTCHA am Formular vorbei (tasks.md T18)', { timeout: TIMEOU
   })
 })
 
+describe('Mindestlänge Passwort in Supabase (tasks.md T17)', { timeout: TIMEOUT }, () => {
+  it('Supabase lehnt 7 Zeichen ab und nimmt 8 Kleinbuchstaben ohne weitere Zeichenarten an (AC-2)', async () => {
+    expect(
+      await signUpTrainingProvider({ email: signUpEmail(), password: 'lizenze', trainingProviderName: 'Zu kurz' })
+    ).toEqual({ status: 'password_rejected' })
+    expect(jar.size).toBe(0)
+
+    expect(
+      await signUpTrainingProvider({ email: signUpEmail(), password: 'lizenzen', trainingProviderName: 'Genau acht' })
+    ).toEqual({ status: 'success' })
+    registerForCleanup((await signedInUserId())!)
+  })
+})
+
+/** Row count of auth.audit_log_entries, through the admin endpoint of Supabase Auth that reads that table. */
+async function auditLogRowCount() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/audit?per_page=1`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+  })
+  const total = response.headers.get('x-total-count')
+  if (!response.ok || total === null) throw new Error(`admin/audit answered ${response.status} without a count`)
+  return Number(total)
+}
+
+// BUG-1: T4 was ticked, yet Supabase kept writing the audit log, with account ID and address of
+// every deleted account. Only an empty table proves the setting (and the one-off cleanup) holds.
+describe('Audit-Log nicht in der Datenbank (tasks.md T4)', { timeout: TIMEOUT }, () => {
+  it('nach Registrierung, Abmeldung und Löschung eines Kontos steht keine Zeile im Audit-Log der Datenbank (AC-12)', async () => {
+    expect(
+      await signUpTrainingProvider({ email: signUpEmail(), password: uniquePassword(), trainingProviderName: 'Audit' })
+    ).toEqual({ status: 'success' })
+    const userId = (await signedInUserId())!
+    registerForCleanup(userId)
+    await signOutCurrentSession()
+    const { error } = await createAdminTestClient().auth.admin.deleteUser(userId)
+    if (error) throw error
+
+    expect(await auditLogRowCount()).toBe(0)
+  })
+})
+
 describe('signOutCurrentSession', { timeout: TIMEOUT }, () => {
   it('beendet genau diese Sitzung, löscht die Cookies, und das alte Refresh-Token taugt nichts mehr (AC-10)', async () => {
     const account = await createTestAccount()
