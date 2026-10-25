@@ -13,7 +13,7 @@ import { register } from '../account.actions'
 import { MESSAGES, type FormError } from '../account.rules'
 import { registerSchema, type RegisterField, type RegisterInput, type RegisterValues } from '../account.schema'
 import { BotCheck, type BotCheckHandle } from './bot-check'
-import { FieldMessage, FormAlert, isConnectionError, isRedirectError } from './form-feedback'
+import { FieldMessage, FormAlert, isConnectionError, isRedirectError } from '@/components/form-feedback'
 
 const INPUT_CLASS = 'h-11 text-base md:text-base'
 
@@ -130,7 +130,7 @@ export function RegisterForm() {
         <BotCheck ref={botCheck} onToken={handleToken} onUnavailable={() => setBotUnavailable(true)} />
 
         {shownError ? (
-          <FormAlert error={shownError}>
+          <FormAlert message={shownError.message}>
             {shownError.loginLink ? (
               <>
                 {' '}

@@ -1,11 +1,11 @@
 'use client'
-// What the login and register forms share (design.md → Regeln für die Formulare): the field
-// error with its icon, the form error box above the button, and telling the redirect after a
-// success apart from a real failure.
+// What the login and register forms and the licence dialogs share (docs/app-shell.md →
+// Gemeinsame Bausteine): the field error with its icon, the form error box, and telling the
+// redirect after a success apart from a real failure. Shared code imports nothing from a feature,
+// so the box takes its message as plain text.
 import { CircleAlert } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { FormMessage, useFormField } from '@/components/ui/form'
-import type { FormError } from '../account.rules'
 
 /** The field's error under the field, as text with an icon — never only a red border. */
 export function FieldMessage() {
@@ -20,12 +20,12 @@ export function FieldMessage() {
 }
 
 /** A form error stays until the next attempt, so it is a box, not a toast. */
-export function FormAlert({ error, children }: { error: FormError; children?: React.ReactNode }) {
+export function FormAlert({ message, children }: { message: string; children?: React.ReactNode }) {
   return (
     <Alert variant="destructive">
       <CircleAlert aria-hidden="true" className="size-4" />
       <AlertDescription className="type-small">
-        {error.message}
+        {message}
         {children}
       </AlertDescription>
     </Alert>

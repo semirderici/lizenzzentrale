@@ -38,7 +38,7 @@
 <!-- Bausteine ohne Abhängigkeit untereinander. Alle Dateisätze sind disjunkt, deshalb sind alle Aufgaben [P].
      Schema und Regeln liegen in einer Aufgabe, weil das Schema seine Meldungen aus den Regeln nimmt. -->
 
-- [ ] T2 [P]  Regeln und Eingaberegeln  · files: src/features/licenses/licenses.rules.ts, src/features/licenses/licenses.rules.test.ts, src/features/licenses/licenses.schema.ts, src/features/licenses/licenses.schema.test.ts  · → AC-1, AC-3, AC-5, AC-6, AC-7, AC-8, AC-9, EC-1, EC-3, EC-4, EC-5, EC-6, EC-7
+- [x] T2 [P]  Regeln und Eingaberegeln  · files: src/features/licenses/licenses.rules.ts, src/features/licenses/licenses.rules.test.ts, src/features/licenses/licenses.schema.ts, src/features/licenses/licenses.schema.test.ts  · → AC-1, AC-3, AC-5, AC-6, AC-7, AC-8, AC-9, EC-1, EC-3, EC-4, EC-5, EC-6, EC-7
   - Regeln (pure):
     - Alle Texte aus design.md → Meldungstexte, dazu der Seitentitel „Lizenzübersicht“. „Keine Verbindung“ und „nicht zugeordnet“ kommen aus `src/features/account/account.rules.ts` und werden nicht doppelt geschrieben.
     - Zustand des Kontingents aus (vergeben, Kontingent): vergeben, Kontingent, frei (mindestens 0), Anteil in Prozent (höchstens 100, bei Kontingent 0 genau 100), Zustand verfügbar / ausgeschöpft / überschritten. Grenzfälle: 0 von 0 ist ausgeschöpft, 5 von 3 ist überschritten.
@@ -51,14 +51,14 @@
     - Entziehen: Lizenz-ID, Pflicht, UUID.
     - Kein Feld für einen Träger, mitgeschickte zusätzliche Felder werden verworfen.
     - Test: die Beispieladressen aus T1 werden angenommen, ebenso dieselbe Adresse mit Großbuchstaben und Rand-Leerzeichen (normalisiert).
-- [ ] T3 [P]  Datenzugriff auf Lizenzen  · files: src/features/licenses/licenses.data.ts, src/features/licenses/licenses.data.test.ts  · → AC-2, AC-4, AC-6, AC-7, AC-8, AC-10, AC-11, EC-1, EC-2, EC-3, EC-6
+- [x] T3 [P]  Datenzugriff auf Lizenzen  · files: src/features/licenses/licenses.data.ts, src/features/licenses/licenses.data.test.ts  · → AC-2, AC-4, AC-6, AC-7, AC-8, AC-10, AC-11, EC-1, EC-2, EC-3, EC-6
   - `server-only`, immer mit dem Server-Client `src/lib/supabase/server.ts`, **nie** mit dem Admin-Client.
   - `listLicenses(Träger-ID)`: ID, Adresse und Zeitpunkt, gefiltert auf die Träger-ID, nach `assigned_at` absteigend und bei Gleichstand nach ID, nicht zwischengespeichert. Jeder Fehler und keine Antwort ergeben „Ladefehler“, nie eine leere Liste.
   - `insertLicense(Träger-ID, Adresse)`: Ergebnis „angelegt“ mit der ID der neuen Lizenz (für PROJ-3), `23505` → „schon vergeben“, `P0001` mit `license_quota_exhausted` → „ausgeschöpft“, alles andere (auch `42501`) → „Fehler“.
   - `deleteLicense(Träger-ID, Lizenz-ID)`: löscht nach Lizenz-ID **und** Träger-ID und gibt die gelöschten IDs zurück. Eine Zeile → „entzogen“, keine → „nicht gefunden“, Fehler → „Fehler“.
   - Jede Funktion ist genau eine Anweisung an die Datenbank. Nie wird nach einer Adresse gefiltert, damit keine Adresse in einer URL der Daten-API landet.
   - Der Test bildet den Server-Client nach und prüft Filter, Sortierung und die Übersetzung aller Codes. Das echte Verhalten der Datenbank deckt T1 ab.
-- [ ] T4 [P]  Formular-Rückmeldungen als geteilter Baustein  · files: src/components/form-feedback.tsx, src/components/form-feedback.test.tsx, src/features/account/components/login-form.tsx, src/features/account/components/register-form.tsx  · → AC-5, EC-5
+- [x] T4 [P]  Formular-Rückmeldungen als geteilter Baustein  · files: src/components/form-feedback.tsx, src/components/form-feedback.test.tsx, src/features/account/components/login-form.tsx, src/features/account/components/register-form.tsx  · → AC-5, EC-5
   - `form-feedback.tsx` und `form-feedback.test.tsx` mit `git mv` aus `src/features/account/components/` nach `src/components/` verschieben.
   - `FormAlert` bekommt nur noch die Meldung als Text statt `FormError`. Geteilter Code importiert nichts aus `src/features/`, auch keine Typen (Regel `shared-does-not-import-features` in `.dependency-cruiser.cjs`).
   - Login- und Registrierungsformular importieren von `@/components/form-feedback` und geben den Text weiter. Sonst ändert sich nichts.
