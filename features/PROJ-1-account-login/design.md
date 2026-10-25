@@ -510,8 +510,27 @@ Supabase läuft mit der Strategie `single`: Es gibt nur das gehostete Projekt, u
 - [ ] **Vor einem Live-Gang:** Setzt der Host `X-Forwarded-For` selbst bzw. überschreibt er ihn? Sonst lässt sich die IP-Sperre durch einen selbst gesetzten Kopf umgehen. Die Adresssperre wirkt in jedem Fall.
 - [ ] **Vor einem Live-Gang:** Gehostet sieht Supabase bei allen Aufrufen die IP des App-Servers. Seine eigenen IP-Grenzen (150 Passwort-Logins, 30 Registrierungen pro 5 Minuten) gelten dann für alle Besucher zusammen. Prüfen und unter Authentication → Rate Limits anheben, falls nötig.
 - [ ] **Restrisiko, beim Live-Gang bewerten:** Ein angemeldeter Verwalter kann über Supabases direkten Endpunkt (`PUT /auth/v1/user`) die eigene E-Mail-Adresse oder das eigene Passwort ändern. Die App bietet das nicht an (Out of Scope), es betrifft nur das eigene Konto, und Rechte hängen nicht an der Adresse.
-- [ ] **Für `/build`, am gehosteten Projekt per Test bestätigen:**
+- [x] **Für `/build`, am gehosteten Projekt per Test bestätigen:** → alle vier bestätigt (`/build`, 2026-10-25, Belege unter „Umsetzungsnotizen“)
   - Der Admin-Schlüssel umgeht Supabases CAPTCHA.
   - Ein direkter Login und eine direkte Registrierung mit dem öffentlichen Schlüssel scheitern mit `captcha_failed`.
   - Die Trigger auf `auth.users` legen an und löschen mit.
   - `pg_cron` läuft und darf die Tabellen in `private` leeren.
+
+## Umsetzungsnotizen (`/build`, 2026-10-25)
+
+**Bestätigt am gehosteten Projekt**
+- Mit eingeschaltetem CAPTCHA (Test-Secret `2x…`) klappen Registrierung und Login über den Admin-Schlüssel; direkt mit dem öffentlichen Schlüssel enden beide mit `captcha_failed` (`auth.data.test.ts`).
+- Die Trigger auf `auth.users` legen Träger und Mitgliedschaft an, verwerfen einen ungültigen Namen samt Konto und löschen beim Konto Mitgliedschaft, Träger und Login-Einträge (`src/test/db/*.test.ts`).
+- Der Job `license-center-cleanup` lief am 2026-10-25 um 10:00 UTC erfolgreich. Die Aufräumfunktion wurde zusätzlich mit zurückdatierten Einträgen in einer zurückgerollten Transaktion geprüft.
+- Die Rechte-Regel ist in der Datenbank nachgeprüft (`information_schema.role_table_grants`, `pg_proc.proacl`): `anon` keine Rechte, `authenticated` nur Lesen, die Bremsfunktionen nur `service_role`. Supabases Advisors melden zu unseren Objekten nichts; sie melden nur Supabases eigene Funktion `public.rls_auto_enable()` aus der Einstellung „automatic RLS“.
+
+**Abweichungen vom Plan in `tasks.md`**
+- Zusätzliche Datei `src/features/account/components/form-feedback.tsx` (Feldfehler mit Symbol, Formular-Hinweisbox, Erkennen der Weiterleitung): Login und Registrierung brauchen dieselben Teile. Nach `redirect()` in einer Server Action lehnt Next.js den Aufruf im Browser mit einem Fehler ab, dessen `digest` mit `NEXT_REDIRECT` beginnt; das Formular wertet ihn als Erfolg. „Keine Verbindung“ (EC-9) erscheint nur bei einem `TypeError` von `fetch`, andere Fehler zeigen die Meldung aus EC-3 bzw. den Login-Fehler.
+- `/sign-out` exportiert GET, PUT, PATCH, DELETE und OPTIONS ausdrücklich mit 405 und `Allow: POST`, weil Next.js auf OPTIONS sonst selbst mit 204 antwortet.
+- Das Abmelden löscht die Sitzungs-Cookies auch dann, wenn Supabase beim Abmelden nicht erreichbar ist.
+- Supabase lehnt bei `signUp` Beispiel- und Test-Domains ab (`email_address_invalid`); die Registrierungstests nutzen deshalb `@lizenzzentrale-test.de`. Es wird nichts verschickt, weil „Confirm email“ aus ist.
+- Supabase begrenzt Anmeldungen pro IP (Schübe um 30). Das Testgerüst legt Konten deshalb ohne Anmeldung an (`createTestAccount`), meldet nur an, wo ein Token gebraucht wird (`createSignedInTestAccount`), und wartet bei der Grenze kurz.
+
+**Offen für `/qa`**
+- Es gibt kein eigenes `error.tsx`. Fällt das Lesen der Mitgliedschaft aus, wirft der Wächter, und Next.js zeigt seine Standard-Fehlerseite statt einer Hinweisbox mit „Erneut versuchen“ (`docs/app-shell.md` → Seitenmuster). Keine AC verlangt sie für PROJ-1.
+- Das Turnstile-Widget ist mindestens 300 px breit. Ab 375 px Bildschirmbreite passt es in die Karte; schmalere Geräte prüft `/qa`.

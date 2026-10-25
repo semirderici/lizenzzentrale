@@ -126,7 +126,7 @@
 
 <!-- Braucht die Actions aus Stufe 4 und das Widget aus Stufe 2. Die beiden Formulare teilen sich keine Datei, der Rahmen (auth) gehört zu T26. Die go-live-Aufgaben stehen am Ende, weil sie erst mit /deploy möglich sind. -->
 
-- [ ] T26 [P]  Login  · files: src/app/(auth)/layout.tsx, src/app/(auth)/login/page.tsx, src/features/account/components/login-form.tsx, src/features/account/components/login-form.test.tsx  · → AC-4, AC-5, AC-6, AC-7, EC-6, EC-8, EC-9
+- [x] T26 [P]  Login  · files: src/app/(auth)/layout.tsx, src/app/(auth)/login/page.tsx, src/features/account/components/login-form.tsx, src/features/account/components/login-form.test.tsx  · → AC-4, AC-5, AC-6, AC-7, EC-6, EC-8, EC-9
   - Rahmen `(auth)`: zentrierte Karte mit dem Produktnamen „Lizenzzentrale“. Auf dem Smartphone volle Breite mit Seitenrand, ab md etwa 400 px.
   - `/login` zeigt die Hinweisbox „Bitte melden Sie sich erneut an.“ nur, wenn `reason` genau `session` ist, und dann immer denselben festen Text. Seitentitel: „Anmelden – Lizenzzentrale“.
   - Formular:
@@ -137,12 +137,12 @@
     - Nach einem Fehler wird das Passwort geleert und das Widget zurückgesetzt, die E-Mail bleibt.
     - Die Weiterleitung nach dem Erfolg gilt nie als Fehler.
     - Kommt keine Antwort, erscheint die Meldung aus EC-9. Lädt das Widget nicht, erscheint die aus EC-8.
-- [ ] T27 [P]  Registrierung  · files: src/app/(auth)/register/page.tsx, src/features/account/components/register-form.tsx, src/features/account/components/register-form.test.tsx  · → AC-1, AC-2, AC-3, AC-7, AC-8, EC-1, EC-3, EC-8, EC-9
+- [x] T27 [P]  Registrierung  · files: src/app/(auth)/register/page.tsx, src/features/account/components/register-form.tsx, src/features/account/components/register-form.test.tsx  · → AC-1, AC-2, AC-3, AC-7, AC-8, EC-1, EC-3, EC-8, EC-9
   - `/register` mit dem Seitentitel „Registrieren – Lizenzzentrale“.
   - Felder: Trägername (`organization`), E-Mail (`email`), Passwort und Wiederholung (`new-password`), Bot-Prüfung. Unter dem Passwort steht schon vor der Eingabe „Mindestens 8 Zeichen.“
   - Feldfehler erscheinen schon im Browser, mit dem Schema aus T9. Formularfehler stehen über dem Knopf, bei AC-3 mit dem Link „Zum Login“.
   - Knopf, Absenden, Fehler, Weiterleitung und Widget verhalten sich wie in T26. Nach einem Fehler werden beide Passwortfelder geleert, Trägername und E-Mail bleiben.
-- [ ] T28 [P]  README: Einrichtung für den Prüfer  · files: README.md  · → AC-1, AC-7 (PRD → Erfolgskriterien: nachvollziehbar für den Prüfer)
+- [x] T28 [P]  README: Einrichtung für den Prüfer  · files: README.md  · → AC-1, AC-7 (PRD → Erfolgskriterien: nachvollziehbar für den Prüfer)
   - Abschnitt „Supabase und Bot-Prüfung einrichten“. Er beschreibt:
     - das Projekt in eu-central-1 anlegen
     - die Dashboard-Einstellungen aus T4 und T16 bis T18

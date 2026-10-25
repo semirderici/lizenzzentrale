@@ -1,3 +1,118 @@
+# Lizenzzentrale
+
+Die Lizenzzentrale ist ein Self-Service-Portal für Bildungsträger, die Lizenzkontingente für die E-Learning-Plattform zur IHK-Weiterbildung „Geprüfter Technischer Betriebswirt“ gekauft haben. Ein Verwalter des Trägers sieht dort, wie viele Lizenzen vergeben und frei sind, und weist Teilnehmern selbst eine Lizenz zu oder entzieht sie wieder.
+
+Diese Anleitung deckt PROJ-1 „Konto & Login“ ab: Bildungsträger registrieren, anmelden, abmelden, Datentrennung pro Träger, Startkontingent von 5 Lizenzen. Lizenzverwaltung (PROJ-2) und Einladungs-E-Mail (PROJ-3) kommen später dazu, den Stand jedes Features zeigt [`features/INDEX.md`](features/INDEX.md).
+
+## Supabase und Bot-Prüfung einrichten
+
+Die App läuft nur lokal (`npm run dev`) gegen genau ein gehostetes Supabase-Projekt im kostenlosen Tarif. Docker wird nicht gebraucht, ein Deployment gibt es nicht. Die Bot-Prüfung ist Cloudflare Turnstile mit Cloudflares öffentlichen Testschlüsseln.
+
+### 1. Voraussetzungen
+
+- Node.js (LTS) mit npm
+- Supabase CLI: `brew install supabase/tap/supabase`, oder ohne Installation über `npx supabase` (dann jedem `supabase`-Befehl unten `npx` voranstellen)
+- ein kostenloses Konto bei [Supabase](https://supabase.com)
+- Ein Cloudflare-Konto ist nicht nötig, die Turnstile-Testschlüssel sind öffentlich.
+
+### 2. Supabase-Projekt anlegen
+
+1. Im Supabase-Dashboard ein neues Projekt anlegen, Region **eu-central-1 (Frankfurt)**. Die Region lässt sich später nicht ändern.
+2. Das Datenbank-Passwort aufbewahren. `supabase link` fragt in Schritt 5 danach.
+3. Die Project Ref notieren: der Teil `<ref>` in der Projekt-URL `https://<ref>.supabase.co`, auch zu finden unter Project Settings → General → „Project ID“.
+
+### 3. Einstellungen im Dashboard
+
+Alle Auth-Einstellungen kommen von Hand ins Dashboard. `supabase/config.toml` gilt nur für eine lokale Supabase-Instanz, die dieses Projekt nicht nutzt. **`supabase config push` nicht ausführen:** Es würde die lokalen Standardwerte aus `config.toml` ins Projekt schreiben.
+
+| Wo im Dashboard | Einstellung | Wert | Warum |
+|---|---|---|---|
+| Authentication → Sign In / Providers → Email | „Confirm email“ | **aus** | Das Konto ist nach der Registrierung sofort aktiv, und nur so meldet Supabase eine schon registrierte Adresse. |
+| Authentication → Sign In / Providers → Email (je nach Dashboard-Stand unter Attack Protection) | „Minimum password length“ | **8**, keine Pflicht zu bestimmten Zeichenarten | zweite Linie hinter der Passwortregel der App |
+| Authentication → Attack Protection | „Enable Captcha protection“ | **an**, Anbieter Cloudflare Turnstile, Secret `2x0000000000000000000000000000000AA` | Cloudflares Test-Secret, das **immer scheitert**, mit Absicht (siehe unten) |
+| Authentication → Audit Logs | „Write audit logs to the database“ | **aus** | Nach dem Löschen eines Kontos verweist keine Zeile in der Datenbank mehr darauf, und im Audit-Log der Datenbank liegen keine IP-Adressen. |
+| Integrations → Data API → Settings | „Automatically expose new tables“ (ältere Dashboards: „Default privileges for new entities“) | optional **aus** | Die Migrationen setzen alle Rechte ausdrücklich und funktionieren mit beiden Werten. Mit „aus“ fällt ein vergessenes Recht schon in den Tests auf. |
+
+**Warum ein CAPTCHA-Secret, das immer scheitert:** Die App prüft das Turnstile-Token selbst und ruft Supabase danach mit dem geheimen Server-Schlüssel auf, den Supabase vom CAPTCHA ausnimmt. Supabase lehnt so jede direkte Registrierung und Anmeldung mit dem öffentlichen Schlüssel ab, und jeder Versuch läuft durch die Bot-Prüfung und die Bremsen der App. Dort deshalb nie ein echtes oder ein immer bestehendes Secret eintragen, auch nicht mit eigenen Turnstile-Schlüsseln: Sonst kämen direkte Anmeldungen an der Login-Sperre der App vorbei.
+
+### 4. Umgebungsvariablen
+
+```bash
+cp .env.local.example .env.local
+```
+
+In `.env.local` diese fünf Werte setzen:
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+```
+
+- `NEXT_PUBLIC_SUPABASE_URL`: Project Settings → Data API (ältere Dashboards: API) → „Project URL“
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Project Settings → API Keys → „Publishable key“ (`sb_publishable_…`) oder der ältere `anon`-Schlüssel
+- `SUPABASE_SERVICE_ROLE_KEY`: Project Settings → API Keys → „Secret key“ (`sb_secret_…`) oder der ältere `service_role`-Schlüssel. **Nur für den Server:** nie mit `NEXT_PUBLIC_` davor, nie einchecken.
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` und `TURNSTILE_SECRET_KEY`: Cloudflares offizielle Testschlüssel, die immer bestehen.
+
+Nicht verwechseln: In `.env.local` steht das Secret `1x…`, das immer besteht. Im Supabase-Dashboard steht das Secret `2x…`, das immer scheitert.
+
+`.env.local` ist über `.gitignore` vom Repository ausgeschlossen. Nach einer Änderung an der Datei `npm run dev` neu starten.
+
+### 5. Datenbankschema einspielen
+
+```bash
+supabase login
+supabase link --project-ref <ref>   # fragt nach dem Datenbank-Passwort aus Schritt 2
+supabase db push                    # spielt die drei Migrationen der Reihe nach ein
+supabase migration list             # Local und Remote zeigen dieselben drei Migrationen
+```
+
+Die Migrationen in `supabase/migrations/`:
+
+1. `20261021120000_proj1_training_providers.sql`: Tabellen `training_providers` und `training_provider_members` mit Row Level Security, Leseregeln und ausdrücklich gesetzten Rechten, dazu die Trigger, die bei der Registrierung Träger und Mitgliedschaft anlegen und einen Träger ohne Verwalter löschen
+2. `20261021120100_proj1_login_throttle.sql`: Login- und Registrierungsbremse im Schema `private` (drei Tabellen, fünf Funktionen, die nur der Server-Schlüssel aufrufen darf) und ein Trigger, der beim Löschen eines Kontos dessen Login-Einträge entfernt
+3. `20261021120200_proj1_cleanup_job.sql`: Erweiterung `pg_cron` mit dem stündlichen Aufräumjob `license-center-cleanup`, der die Einträge der Bremsen nach spätestens 24 Stunden löscht
+
+Ist in der Shell ein `SUPABASE_ACCESS_TOKEN` eines anderen Supabase-Kontos gesetzt, nutzt die CLI dieses statt des Logins. Dann jedem Befehl `env -u SUPABASE_ACCESS_TOKEN` voranstellen, z. B. `env -u SUPABASE_ACCESS_TOKEN supabase db push`.
+
+### 6. Starten und ausprobieren
+
+```bash
+npm install
+npm run dev
+```
+
+http://localhost:3000 öffnen, die App leitet zur Anmeldung weiter.
+
+1. **Registrieren** („Noch kein Konto? Registrieren“): Name des Bildungsträgers, E-Mail-Adresse und zweimal ein Passwort mit mindestens 8 Zeichen. Die Bot-Prüfung besteht mit den Testschlüsseln immer, danach wird „Registrieren“ aktiv. Anschließend ist man angemeldet und landet auf der „Lizenzübersicht“, oben rechts stehen der Name des Trägers und „Abmelden“. Der Träger startet mit 5 Lizenzen: in der Tabellenansicht `training_providers.license_quota`, in der App angezeigt erst mit PROJ-2.
+2. **Abmelden:** „Abmelden“ führt zurück zur Anmeldung. „Zurück“ im Browser zeigt keine geschützte Seite mehr.
+3. **Anmelden** mit derselben E-Mail-Adresse und demselben Passwort: wieder die „Lizenzübersicht“.
+
+Das sollte dabei passieren:
+
+- Falsches Passwort oder unbekannte Adresse: „E-Mail-Adresse oder Passwort ist falsch.“ Beide Fälle sehen gleich aus und antworten frühestens nach 1 Sekunde.
+- Nach 5 Fehlversuchen für dieselbe Adresse ist die Anmeldung 15 Minuten gesperrt. Ab dem nächsten Versuch erscheint „Zu viele Anmeldeversuche. Bitte versuchen Sie es in 15 Minuten erneut.“ Pro IP-Adresse greift die Sperre nach 20 Fehlversuchen.
+- Registrieren mit einer schon registrierten Adresse: „Mit dieser E-Mail-Adresse ist bereits ein Konto registriert. Bitte melden Sie sich an.“ mit Link „Zum Login“.
+- Ab der sechsten Registrierung innerhalb einer Stunde von derselben IP-Adresse (Versuche mit schon registrierten Adressen zählen mit): „Zu viele Registrierungen. Bitte versuchen Sie es später erneut.“
+- http://localhost:3000/licenses ohne Anmeldung, z. B. im privaten Fenster: Weiterleitung zur Anmeldung mit dem Hinweis „Bitte melden Sie sich erneut an.“
+
+### 7. Tests
+
+```bash
+npm test          # Unit- und Integrationstests (Vitest)
+npm run check     # Lint, Typen, Struktur, Tests und Build in einem Lauf
+```
+
+- Die Integrationstests laufen gegen das verbundene gehostete Projekt und lesen dieselben Schlüssel aus `.env.local` wie `npm run dev`. Dafür müssen das Schema eingespielt (Schritt 5) und die Dashboard-Einstellungen gesetzt sein (Schritt 3). Ein Test prüft z. B., dass eine direkte Anmeldung mit dem öffentlichen Schlüssel an Supabases CAPTCHA scheitert.
+- Die Tests legen Konten mit Adressen wie `lizenzzentrale-test-…@example.com` oder `…@lizenzzentrale-test.de` an und löschen sie am Ende wieder. Ihre Einträge in den Bremsen entfernt der stündliche Aufräumjob, spätestens nach 24 Stunden.
+- Supabase begrenzt Anmeldungen pro IP-Adresse. Wer die Suite viele Male hintereinander startet, kann kurz an diese Grenze stoßen und muss dann ein paar Minuten warten.
+
+---
+
+> Ab hier folgt die unveränderte Beschreibung des AI Engineering Kit (englisch), mit dem dieses Projekt entwickelt wird: Arbeitsablauf, Skills, Projektstruktur. Für die Einrichtung dieses Projekts gilt der Abschnitt oben, auch wo das Kit allgemein andere Wege beschreibt (z. B. Supabase lokal mit Docker).
+
 # AI Engineering Kit
 
 > A spec-driven workflow for [Claude Code](https://docs.anthropic.com/en/docs/claude-code): turn an idea into a production-ready web app, one feature at a time — Requirements → Architecture → Tasks → Build → QA → Deploy.
