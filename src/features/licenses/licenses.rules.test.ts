@@ -90,6 +90,16 @@ describe('quotaSummary', () => {
     expect(quotaSummary(0, 0)).toEqual({ assigned: 0, quota: 0, free: 0, percent: 100, state: 'exhausted' })
   })
 
+  // Added by /qa: the last free licence (EC-1) and a quota lowered to 0 below assigned licences (AC-9).
+  it('4 von 5: die letzte freie Lizenz, noch verfügbar (EC-1)', () => {
+    expect(quotaSummary(4, 5)).toEqual({ assigned: 4, quota: 5, free: 1, percent: 80, state: 'available' })
+  })
+
+  it('2 von 0: überschritten, nicht ausgeschöpft, Balken auf 100 % (AC-9)', () => {
+    expect(quotaSummary(2, 0)).toEqual({ assigned: 2, quota: 0, free: 0, percent: 100, state: 'exceeded' })
+    expect(assignedText(quotaSummary(2, 0))).toBe('2 von 0 Lizenzen vergeben')
+  })
+
   it('rundet den Anteil auf ganze Prozent', () => {
     expect(quotaSummary(1, 3).percent).toBe(33)
     expect(quotaSummary(2, 3).percent).toBe(67)

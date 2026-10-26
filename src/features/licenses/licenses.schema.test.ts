@@ -67,6 +67,31 @@ describe('assignLicenseSchema', () => {
     expect(emailMessages({ email: ' '.repeat(1001) })).toEqual([EMAIL_INVALID])
   })
 
+  // Added by /qa: what a pasted address brings along, and the edges of the length rules.
+  it.each([
+    ['Tab und Zeilenumbruch', '\tTeilnehmer@Example.com\n'],
+    ['geschütztes Leerzeichen', ' teilnehmer@example.com '],
+    ['Wagenrücklauf', 'teilnehmer@example.com\r\n'],
+  ])('entfernt %s am Rand wie Leerzeichen (AC-6)', (_case, email) => {
+    expect(assignLicenseSchema.parse({ email })).toEqual({ email: 'teilnehmer@example.com' })
+  })
+
+  it('genau 1.000 Zeichen mit Rand-Leerzeichen sind noch keine Überlänge', () => {
+    const email = `${' '.repeat(493)}teilnehmer@example.com${' '.repeat(485)}`
+    expect(email).toHaveLength(1000)
+    expect(assignLicenseSchema.parse({ email })).toEqual({ email: 'teilnehmer@example.com' })
+  })
+
+  it.each([
+    ['ohne Teil vor dem @', '@example.com'],
+    ['mit zwei @', 'teil@nehmer@example.com'],
+    ['mit Punkt am Anfang', '.teilnehmer@example.com'],
+    ['mit zwei Punkten hintereinander', 'teil..nehmer@example.com'],
+    ['mit Leerzeichen in der Domain', 'teilnehmer@exam ple.com'],
+  ])('eine Adresse %s ist ungültig (AC-5)', (_case, email) => {
+    expect(emailMessages({ email })).toEqual([EMAIL_INVALID])
+  })
+
   it('verwirft einen mitgeschickten Träger (Technische Anforderungen: Träger nur aus dem Wächter)', () => {
     expect(
       assignLicenseSchema.parse({ email: 'teilnehmer@example.com', trainingProviderId: 'fremder-traeger' })
