@@ -78,11 +78,13 @@ describe('AssignLicenseDialog', () => {
   it.each([
     ['leer', '   ', TEXT.required],
     ['ungültig', 'teilnehmer@', TEXT.invalid],
-  ])('prüft im Browser: %s → Meldung am Feld, die Action wird nicht aufgerufen (AC-5)', async (_case, email, message) => {
+  ])('prüft im Browser: %s → Meldung am Feld, die Eingabe bleibt, die Action wird nicht aufgerufen (AC-5)', async (_case, email, message) => {
     openDialog()
     submitWith(email)
     expect(await screen.findByText(message)).toBeInTheDocument()
     expect(emailInput()).toHaveAttribute('aria-invalid', 'true')
+    // An input of type email drops blanks at the edges itself (HTML value sanitization).
+    expect(emailInput()).toHaveValue(email.trim())
     expect(assignLicense).not.toHaveBeenCalled()
     expect(dialog()).toBeInTheDocument()
   })
