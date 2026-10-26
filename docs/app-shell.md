@@ -39,10 +39,12 @@ Gilt für die Lizenzübersicht und jede spätere Seite im angemeldeten Bereich.
 - **Laden:** Skeletons nur im Inhaltsbereich, in der Form des späteren Inhalts, über eine `loading.tsx` neben der Seite. Die Kopfzeile bleibt stehen.
 - **Leer:** gedämpftes Symbol, ein Satz und der nächste Schritt (z. B. „Noch keine Lizenz vergeben. Weisen Sie die erste zu.“).
 - **Fehler beim Laden:** Hinweisbox (shadcn `alert`) im Inhalt mit „Erneut versuchen“, nie eine leere Seite. Die Seite fängt Ladefehler ihrer eigenen Daten selbst ab, „Erneut versuchen“ lädt über den Router neu, ohne den Browser neu zu laden (seit PROJ-2). Fehler im Wächter des Rahmens sind PROJ-1 BUG-4.
-- **Rückmeldungen:** Toasts (`sonner`) für Erfolg und Fehler einer Aktion.
+- **Rückmeldungen:** Toasts (`sonner`) in drei Arten: Erfolg, Warnung (die Aktion ist gelungen, ein Folgeschritt nicht, z. B. „Lizenz zugewiesen“ mit nicht versendeter Einladung) und Fehler. Ein Toast kann eine Zusatzzeile tragen (seit PROJ-3).
 - **Aktionen mit Eingabe** öffnen einen Dialog (shadcn `dialog`). Was der Verwalter beheben oder wiederholen kann (Feldfehler, keine Verbindung), steht im Dialog, die Eingabe bleibt stehen. Ein Ergebnis (Erfolg oder endgültige Ablehnung) meldet ein Toast, und der Dialog schließt. Während des Sendens sind die Knöpfe gesperrt, und der Dialog schließt erst nach der Antwort (seit PROJ-2).
 - **Destruktive Aktionen** nur mit Bestätigungsdialog (shadcn `alert-dialog`). Beim Öffnen hat „Abbrechen“ den Fokus (seit PROJ-2).
 - **Listen** stehen ab `md` als Tabelle (shadcn `table`), darunter als eine Karte pro Eintrag, ohne seitliches Scrollen (seit PROJ-2).
+- **Aktionen ohne Eingabe in einer Liste** (z. B. „Erneut senden“) sind Knöpfe in der Zeile bzw. Karte, ohne Dialog. Während des Sendens ist der Knopf gesperrt und trägt `aria-busy`, das Ergebnis meldet ein Toast (seit PROJ-3).
+- **Zustände in einer Liste** stehen als Badge (shadcn `badge`) mit Symbol und Wort, nie nur als Farbe (seit PROJ-3).
 - **Nach einer Aktion** zeigt die Seite ohne Neuladen den aktuellen Stand: Die Server Action frischt die Seite auf (`refresh()` aus `next/cache`), Zahlen und Listen kommen immer aus der Datenbank (seit PROJ-2).
 
 ## Anmeldestatus

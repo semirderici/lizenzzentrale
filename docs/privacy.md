@@ -12,7 +12,7 @@
 **Datenschutz-Haltung:** lean (`docs/PRD.md` → Rahmenbedingungen)
 **Verantwortlicher:** _offen — wird vor dem Live-Gang festgelegt (siehe Offene Punkte)_
 **Zuletzt geprüft:** 2026-10-26 (`/dsgvo PROJ-3`)
-**Ergänzt:** 2026-10-21 (`/architecture PROJ-1`: Bot-Prüfdienst, Speicher der Bremsen, Audit-Log; `/dsgvo PROJ-1` kann das nachprüfen)
+**Ergänzt:** 2026-10-21 (`/architecture PROJ-1`: Bot-Prüfdienst, Speicher der Bremsen, Audit-Log; `/dsgvo PROJ-1` kann das nachprüfen) · 2026-10-26 (`/architecture PROJ-3`: E-Mail-Dienst Mailjet, Versandzähler)
 
 ---
 
@@ -25,7 +25,7 @@
 | Registrierungen bremsen (PROJ-1) | IP-Adresse, Zeitpunkt und Ergebnis von Registrierungen (keine E-Mail-Adresse) | alle, die sich registrieren | Art. 6 Abs. 1 lit. f DSGVO (Sicherheit, Art. 32) | höchstens 24 Stunden (PROJ-1 AC-13), derselbe Job | Supabase (eu-central-1), Schema `private` |
 | Bots abwehren (PROJ-1) | IP-Adresse, Browser-Merkmale | alle Besucher von `/login` und `/register` (das Skript lädt nur dort) | Art. 6 Abs. 1 lit. f DSGVO (Sicherheit) | die App speichert nichts davon; bei Cloudflare laut deren Angaben | Cloudflare Turnstile |
 | Lizenzen für Teilnehmer führen (PROJ-2) | E-Mail-Adresse des Teilnehmers, Zeitpunkt der Zuweisung, Zuordnung zum Bildungsträger — kein Name, keine weiteren Angaben (PROJ-2 AC-12) | Teilnehmer der Bildungsträger, eingegeben vom Verwalter ihres Trägers | für den Bildungsträger Art. 6 Abs. 1 lit. b DSGVO (Durchführung des Lehrgangs); die Rolle des Anbieters (Auftragsverarbeiter oder eigener Verantwortlicher) ist offen, siehe „Für einen Anwalt“ | bis der Verwalter die Lizenz entzieht oder der Bildungsträger gelöscht wird, dann sofort und ohne Kopie, Vermerk oder Protokoll (PROJ-2 AC-11) | Supabase (eu-central-1) |
-| Teilnehmer einladen (PROJ-3) | E-Mail-Adresse des Teilnehmers (aus der Lizenz, keine Kopie), Trägername im Mailtext, Versandstand der Einladung (Zustand, Zeitpunkt des letzten Versuchs, Zahl der Versendungen); dazu Zähler der Versandgrenze pro Bildungsträger ohne Teilnehmer-Adresse (PROJ-3 AC-12) | Teilnehmer der Bildungsträger | wie bei den Lizenzen: für den Bildungsträger Art. 6 Abs. 1 lit. b DSGVO, die Rolle des Anbieters ist offen (siehe „Für einen Anwalt“); die Einladung ist eine Servicemail ohne Werbung und ohne Verfolgung (PROJ-3 AC-11) | Versandstand bis die Lizenz entzogen oder der Bildungsträger gelöscht wird, dann sofort (PROJ-3 AC-12) · Zähler der Versandgrenze höchstens 24 Stunden · beim E-Mail-Dienst: dessen Frist für das Versandprotokoll, trägt `/architecture` PROJ-3 ein | Supabase (eu-central-1), E-Mail-Dienst (Wahl bei `/architecture` PROJ-3) |
+| Teilnehmer einladen (PROJ-3) | E-Mail-Adresse des Teilnehmers (aus der Lizenz, keine Kopie), Trägername im Mailtext, Versandstand der Einladung (Zustand, Zeitpunkt des letzten Versuchs, Zahl der Versendungen); dazu Zähler der Versandgrenze pro Bildungsträger ohne Teilnehmer-Adresse (PROJ-3 AC-12) | Teilnehmer der Bildungsträger | wie bei den Lizenzen: für den Bildungsträger Art. 6 Abs. 1 lit. b DSGVO, die Rolle des Anbieters ist offen (siehe „Für einen Anwalt“); die Einladung ist eine Servicemail ohne Werbung und ohne Verfolgung (PROJ-3 AC-11) | Versandstand bis die Lizenz entzogen oder der Bildungsträger gelöscht wird, dann sofort (PROJ-3 AC-12) · Zähler der Versandgrenze 24 Stunden (ein Job alle 5 Minuten löscht, was älter ist) · bei Mailjet: Versandverlauf und automatisch angelegter Kontakt **ohne feste Frist**, bis der Betreiber sie löscht — Löschregel vor dem Live-Gang (siehe Offene Punkte) | Supabase (eu-central-1), Mailjet |
 
 ## Sensible Daten
 
@@ -39,9 +39,9 @@
 
 | Dienst | Was er verarbeitet | Region | AVV abgeschlossen | Außerhalb der angemessenen Länder? |
 |--------|--------------------|--------|-------------------|------------------------------------|
-| Supabase | Konten, Bildungsträger, Mitgliedschaften, Anmelde- und Registrierungsversuche, Lizenzen (E-Mail-Adressen von Teilnehmern), Versandstände der Einladungen, Zähler der Versandgrenze | eu-central-1 (Frankfurt) | ☐ | US-Firma, Hosting in der EU |
+| Supabase | Konten, Bildungsträger, Mitgliedschaften, Anmelde- und Registrierungsversuche, Lizenzen (E-Mail-Adressen von Teilnehmern), Versandstände der Einladungen, Zähler der Versandgrenze (ohne Adresse) | eu-central-1 (Frankfurt) | ☐ | US-Firma, Hosting in der EU |
 | Cloudflare Turnstile (Bot-Prüfung) | IP-Adresse, Browser-Merkmale der Besucher von Login und Registrierung | globales Netz von Cloudflare, im kostenlosen Tarif keine Beschränkung auf die EU | ☐ — bis zum Live-Gang laufen Cloudflares öffentliche Testschlüssel ohne eigenes Konto; der AVV kommt mit dem eigenen Turnstile-Konto | ja: US-Firma (Cloudflare, Inc.), nach eigener Angabe unter dem EU-U.S. Data Privacy Framework zertifiziert, vor dem Live-Gang prüfen |
-| E-Mail-Dienst (Einladungen, PROJ-3) — Wahl bei `/architecture` PROJ-3 | Empfängeradresse und Inhalt der Einladung samt Trägername, im Versandprotokoll des Dienstes | offen — EU bevorzugt (`docs/PRD.md`) | ☐ | offen — wird mit der Wahl des Dienstes festgehalten |
+| Mailjet (E-Mail-Dienst der Einladungen, PROJ-3; gewählt bei `/architecture` PROJ-3) | Absender- und Empfängeradresse, Betreff und Inhalt der Einladung samt Trägername, Zustellereignisse im Versandverlauf; jeden Empfänger legt Mailjet automatisch als Kontakt an. Öffnungs- und Klickverfolgung sind abgeschaltet (PROJ-3 AC-11). | EU: laut Mailjet Google-Cloud-Rechenzentren in Frankfurt und Saint-Ghislain (Belgien) | ☐ — vor dem Live-Gang; bis dahin nur eigene Testadressen | Mailjet ist ein europäisches Unternehmen (Sinch-Gruppe); Hosting bei Google Cloud (US-Firma) in der EU — Unterauftragsverarbeiter vor dem Live-Gang prüfen |
 
 ## Betroffenenrechte — wie sie bedient werden
 
@@ -49,7 +49,7 @@
 |-------|-------|----------------------------|
 | Auskunft / Kopie | Art. 15 | auf Anfrage beim Anbieter, der die Daten aus Supabase zusammenstellt · Teilnehmer: über ihren Bildungsträger, dessen Verwalter die Adresse in der Lizenzübersicht sieht, oder beim Anbieter |
 | Berichtigung | Art. 16 | auf Anfrage beim Anbieter, der in Supabase ändert · Teilnehmer: Der Verwalter entzieht die Lizenz und weist die richtige Adresse neu zu |
-| Löschung | Art. 17 | auf Anfrage beim Anbieter: Das Löschen des Kontos entfernt Mitgliedschaft und Bildungsträger (PROJ-1 AC-12) und mit dem Träger alle seine Lizenzen · Teilnehmer: Der Verwalter entzieht die Lizenz, die Adresse ist sofort gelöscht (PROJ-2 AC-11) und mit ihr der Versandstand der Einladung (PROJ-3 AC-12), oder der Anbieter löscht sie in Supabase; im Versandprotokoll des E-Mail-Dienstes bleibt die Adresse bis zu dessen Frist |
+| Löschung | Art. 17 | auf Anfrage beim Anbieter: Das Löschen des Kontos entfernt Mitgliedschaft und Bildungsträger (PROJ-1 AC-12) und mit dem Träger alle seine Lizenzen · Teilnehmer: Der Verwalter entzieht die Lizenz, die Adresse ist sofort gelöscht (PROJ-2 AC-11) und mit ihr der Versandstand der Einladung (PROJ-3 AC-12), oder der Anbieter löscht sie in Supabase; bei Mailjet (Versandverlauf, Kontakt) bleibt die Adresse, bis der Anbieter sie dort löscht (Mailjet → Contacts bzw. GDPR-Löschung) |
 | Datenübertragbarkeit | Art. 20 | auf Anfrage beim Anbieter, als Export aus Supabase (CSV/JSON) |
 | Widerspruch | Art. 21 | auf Anfrage beim Anbieter (betrifft Login-Bremse, Registrierungsbremse und Bot-Prüfung, berechtigtes Interesse) |
 
@@ -64,7 +64,9 @@
 - [x] Aufbewahrung des Supabase-Auth-Audit-Logs: Es wird nicht in die Datenbank geschrieben (Authentication → Audit Logs → „Write audit logs to the database“ aus) und liegt nur in Supabases Log-Speicher, so lange wie der Tarif Logs aufbewahrt (`/architecture` PROJ-1, 2026-10-21)
 - [ ] Kontaktweg für Betroffenenanfragen, Datenschutzerklärung und Impressum — beim Live-Gang (`docs/PRD.md` → Später)
 - [ ] Information der Teilnehmer (Art. 14 DSGVO): Die Einladung enthält einen kurzen Hinweis, wer die Adresse eingetragen hat, was gespeichert ist, wie lange und an wen man sich wendet (PROJ-3 AC-10, `/write-spec` 2026-10-26). Ob er reicht, klärt der Anwalt (siehe „Für einen Anwalt“)
-- [ ] AVV mit dem E-Mail-Dienst abschließen — vor dem Live-Gang; der Dienst wird bei `/architecture` PROJ-3 gewählt
+- [x] E-Mail-Dienst gewählt: Mailjet, Region EU (`/architecture` PROJ-3, 2026-10-26)
+- [ ] AVV mit Mailjet abschließen (Mailjets Data Processing Agreement) — vor dem Live-Gang
+- [ ] Löschregel bei Mailjet festlegen — vor dem Live-Gang: Mailjet legt jeden Empfänger als Kontakt an und hält den Versandverlauf ohne eigene Frist. Möglich sind regelmäßiges Löschen durch den Betreiber oder ein Folge-Feature, das den Kontakt beim Entziehen über Mailjets GDPR-Löschung entfernt (`features/PROJ-3-invitation-email/spec.md` → Offene Fragen)
 
 ## Für einen Anwalt / Datenschutzbeauftragten
 

@@ -77,6 +77,7 @@
 ## Offene Fragen
 - [ ] Für einen Anwalt: Reicht der kurze Hinweis aus AC-10 für Art. 14 DSGVO, oder braucht die Einladung mehr Angaben (Verantwortlicher, Rechtsgrundlage, Empfänger wie der E-Mail-Dienst, Betroffenenrechte)? Das hängt an der offenen Rollenfrage aus PROJ-2 (Auftragsverarbeitung oder eigener Verantwortlicher). Vor dem Live-Gang klären (`docs/privacy.md`).
 - [ ] Welche Adresse hat die Lernplattform beim Live-Gang? Bis dahin stellt der Betreiber bzw. Prüfer das Linkziel selbst ein.
+- [ ] Vor dem Live-Gang (aus `/architecture`): Mailjet legt jeden Empfänger automatisch als Kontakt an und löscht Kontakte und Versandverlauf nicht von selbst. Reicht ein regelmäßiges Löschen durch den Betreiber, oder soll das Entziehen einer Lizenz den Kontakt bei Mailjet gleich mitlöschen (Folge-Feature über Mailjets GDPR-Löschung)? Die Spec verlangt eine möglichst kurze Aufbewahrung beim Dienst.
 
 ## Decision Log
 
