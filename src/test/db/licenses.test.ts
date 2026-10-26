@@ -1,7 +1,9 @@
 // @vitest-environment node
-// Database tests for supabase/migrations/20261025120000_proj2_licenses.sql, run against the
-// hosted project with real test accounts. Participant addresses come from example.com only.
+// Database tests for supabase/migrations/20261025120000_proj2_licenses.sql and
+// 20261026120000_proj2_licenses_email_rule.sql, run against the hosted project with real test
+// accounts. Participant addresses come from example.com only.
 import { randomUUID } from 'node:crypto'
+import { assignLicenseSchema } from '@/features/licenses/licenses.schema'
 import {
   createAdminTestClient,
   createAnonTestClient,
@@ -217,35 +219,73 @@ describe('Gleichzeitige Anfragen', { timeout: TIMEOUT }, () => {
 })
 
 describe('Regel der Spalte (AC-5)', { timeout: TIMEOUT }, () => {
-  // The same addresses stand as valid in src/features/licenses/licenses.schema.test.ts: the column
-  // accepts every address the app accepts.
-  const accepted = [
+  // One list for both sides: the app's schema and the column rule judge every address alike, so
+  // the data API accepts nothing the dialog rejects (BUG-1). The addresses are in the form the
+  // app stores them, trimmed and lower-cased. The valid ones also stand in
+  // src/features/licenses/licenses.schema.test.ts.
+  const valid = [
     'vorname.nachname+kurs@example.com',
     'max-muster@example.com',
     'teilnehmer_1@mail.sub.example.com',
     "o'neil@example.com",
     `${'a'.repeat(242)}@example.com`,
   ]
+  const invalid = [
+    'teilnehmer.example.com',
+    'teil@nehmer@example.com',
+    '@example.com',
+    'teilnehmer@example',
+    'teil nehmer@example.com',
+    'teil\u0007nehmer@example.com',
+    `${'a'.repeat(243)}@example.com`,
+    // The column accepted these until BUG-1.
+    '<script>alert(1)</script>@example.com',
+    '"><img/src=x/onerror=alert(1)>@example.com',
+    'teilnehmer@example.c',
+    'teilnehmer@example.123',
+    '.teilnehmer@example.com',
+    'teilnehmer.@example.com',
+    'teil..nehmer@example.com',
+    'teilnehmer@-example.com',
+    'teilnehmer@example..com',
+    'teilnehmer@example.com.',
+    'teilnehmer@exa_mple.com',
+    'müller@example.com',
+  ]
+  const ACCEPTED = 'accepted'
 
-  it('nimmt Adressen mit Plus, Punkt, Bindestrich, Unterstrich, Apostroph, Subdomain und genau 254 Zeichen an', async () => {
-    expect(accepted.at(-1)).toHaveLength(254)
-    const b = await otherTrainingProvider()
-    await setQuota(b.trainingProviderId, accepted.length)
+  it('nimmt mit dem Token des Verwalters genau die Adressen an, die das Schema der App annimmt (BUG-1)', async () => {
+    expect(valid.at(-1)).toHaveLength(254)
+    const a = await signedInAdmin()
+    const addresses = [...valid, ...invalid]
+    await setQuota(a.trainingProviderId, addresses.length)
+    const expected = Object.fromEntries(
+      addresses.map((email) => [email, valid.includes(email) ? ACCEPTED : CHECK_VIOLATION])
+    )
 
-    expect(await assignAsAdmin(b.trainingProviderId, accepted)).toHaveLength(accepted.length)
+    const app = Object.fromEntries(
+      addresses.map((email) => [
+        email,
+        assignLicenseSchema.safeParse({ email }).success ? ACCEPTED : CHECK_VIOLATION,
+      ])
+    )
+    const column: Record<string, string> = {}
+    for (const email of addresses) {
+      const { error } = await a.client
+        .from('licenses')
+        .insert({ training_provider_id: a.trainingProviderId, email })
+      column[email] = error ? error.code : ACCEPTED
+    }
+
+    expect(app).toEqual(expected)
+    expect(column).toEqual(expected)
+    expect(await licenseEmailsOf(a.trainingProviderId)).toEqual([...valid].sort())
   })
 
   it.each([
-    ['ohne @', 'teilnehmer.example.com'],
-    ['mit zwei @', 'teil@nehmer@example.com'],
-    ['ohne Zeichen vor dem @', '@example.com'],
-    ['ohne Punkt in der Domain', 'teilnehmer@example'],
-    ['mit Leerzeichen', 'teil nehmer@example.com'],
-    ['mit Leerzeichen am Rand', ' teilnehmer@example.com'],
-    ['mit Steuerzeichen', 'teil\u0007nehmer@example.com'],
     ['mit Großbuchstaben', 'Teilnehmer@example.com'],
-    ['mit 255 Zeichen', `${'a'.repeat(243)}@example.com`],
-  ])('lehnt eine Adresse %s ab', async (_case, email) => {
+    ['mit Leerzeichen am Rand', ' teilnehmer@example.com'],
+  ])('lehnt eine Adresse %s ab, statt sie anzupassen', async (_case, email) => {
     const b = await otherTrainingProvider()
 
     const { error } = await createAdminTestClient()

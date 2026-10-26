@@ -13,8 +13,8 @@ function emailMessages(input: unknown): string[] {
 }
 
 describe('assignLicenseSchema', () => {
-  // The same addresses stand in src/test/db/licenses.test.ts → "Regel der Spalte": the column
-  // accepts every address the app accepts.
+  // The same addresses stand in src/test/db/licenses.test.ts → "Regel der Spalte", which judges a
+  // longer list with this schema and the column rule alike (BUG-1).
   it.each([
     'vorname.nachname+kurs@example.com',
     'max-muster@example.com',
