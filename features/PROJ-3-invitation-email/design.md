@@ -428,6 +428,65 @@ Codebase-Karte: entfällt (`mode: new`, kein `docs/codebase/`).
 
 ## Offene Fragen (Open Questions)
 
-- [ ] **Für `/build`, mit einer echten Testmail klären:** Fügt Mailjet im kostenlosen Tarif ein Logo oder einen Hinweis in Mails ein, die über die Send API gehen? Drittquellen sagen „Mailjet-Logo im Free-Tarif“, ohne zwischen Kampagnen und Transaktionsmails zu unterscheiden. Wenn ja, ist AC-11 („keine Werbung“) mit dem kostenlosen Mailjet nicht erfüllbar, und das Design muss zurück zu `/architecture`.
-- [ ] **Für `/build`:** Muss ein neues Mailjet-Konto vor dem ersten Versand an fremde Adressen erst von Mailjet freigeschaltet werden? Falls ja, gehört der Schritt in die README.
+- [x] **Für `/build`, mit einer echten Testmail klären:** Fügt Mailjet im kostenlosen Tarif ein Logo oder einen Hinweis in Mails ein, die über die Send API gehen? Drittquellen sagen „Mailjet-Logo im Free-Tarif“, ohne zwischen Kampagnen und Transaktionsmails zu unterscheiden. Wenn ja, ist AC-11 („keine Werbung“) mit dem kostenlosen Mailjet nicht erfüllbar, und das Design muss zurück zu `/architecture`.
+  - **Geklärt am 2026-10-27 (Probeversand):** Nein. Die Mail kam ohne Logo, ohne Werbetext und ohne Bild an. Details unter „Umsetzungsnotizen“.
+- [x] **Für `/build`:** Muss ein neues Mailjet-Konto vor dem ersten Versand an fremde Adressen erst von Mailjet freigeschaltet werden? Falls ja, gehört der Schritt in die README.
+  - **Geklärt am 2026-10-27:** Nein. Die erste Mail kam ohne Freischaltung bei einer anderen Adresse als der Absenderadresse an. Die README nennt deshalb keinen solchen Schritt.
 - Die rechtlichen und produktseitigen Fragen (Umfang des Datenschutzhinweises, Adresse der Plattform, Löschregel bei Mailjet) stehen in `spec.md`.
+
+## Umsetzungsnotizen (`/build`)
+
+Gebaut in sechs Stufen auf `feat/PROJ-3-invitation-email` (Commits `cf1e19f` bis `181c9f1`). Am Ende lief `npm run check` einmal vollständig grün: Lint, Typen, Struktur, 855 Tests und der Produktions-Build.
+
+### Am gehosteten Projekt bestätigt
+
+Alle Punkte aus „Für `/build`, am gehosteten Projekt per Test bestätigen“ sind belegt:
+
+- **`src/test/db/invitations.test.ts`** (19 Tests) prüft:
+  - die Löschkaskade und das Leeren des Verweises beim Entziehen, ohne Rechte des Verwalters;
+  - das Einbetten in `listLicenses` (ein Objekt oder `null`);
+  - die Funktionen, die mit dem öffentlichen Schlüssel und mit dem Token eines Verwalters nicht aufrufbar sind;
+  - EC-1 und EC-2 bei gleichzeitigen Aufrufen.
+- **Schema `private`, per SQL in einer zurückgerollten Transaktion:**
+  - Der Aufräumjob ist alle 5 Minuten eingeplant. Seine Funktion löscht Zeilen, die älter als 24 Stunden sind, und lässt jüngere stehen.
+  - Ein `pending`-Versand zählt nur 2 Minuten.
+- **Gegenprobe:** Für jede Testdatei waren alle Tests mindestens einmal rot. Bei der Datenbank wurden dafür die Schutzregeln im gehosteten Projekt kaputt gemacht und danach aus der Migration wiederhergestellt, mit Prüfsumme über Funktionen, Regeln, Rechte und Spalten.
+
+### Probeversand (2026-10-27)
+
+- Eine echte Einladung ging über `mailjet.integration.ts` an eine eigene Gmail-Adresse. Mailjet antwortete mit **HTTP 200** und `Status: success`.
+- **In der Mail:** kein Logo, kein Werbetext, kein Bild, der Datenschutzhinweis ist vollständig. Der Trägername (`Probe-Akademie <b>fett</b> www.beispiel.de`) stand als reiner Text da, ohne Fettdruck und ohne Link (EC-7).
+- **Zustellung:** Die Mail landete im **Spam-Ordner**, Gmail zeigte sie als „Lizenzzentrale über bnc3.mailjet.com“. Das ist bei einer Gmail-Absenderadresse ohne eigene Domain zu erwarten. Abhilfe schafft T23 (eigene Domain mit SPF und DKIM) vor dem Live-Gang. Die README weist auf den Spam-Ordner hin.
+- **Nicht ausdrücklich geprüft:** das Linkziel des Knopfs (Mauszeiger oder Quelltext) und dass keine Antwortadresse gesetzt ist. Der Code setzt Klick- und Öffnungsverfolgung pro Mail aus und keine Antwortadresse. Der Hinweis zu AC-11 unter „Hinweise für `/qa`“ deckt beides ab.
+
+### Browsertest (T19, 2026-10-27)
+
+- **Ablauf:** Gegen `http://localhost:3000` mit einem vorübergehend registrierten Träger. Zuweisen an eine eigene Gmail-Adresse mit `+`-Zusatz, Erneut senden, Neuladen, Smartphone-Breite, Entziehen. Danach wurden Konto und Träger wieder gelöscht.
+- **Zuweisen:** Erfolgs-Toast „Lizenz zugewiesen“ mit „Die Einladung ist versendet.“ nach etwa 1 Sekunde, in der Liste „Versendet am 27.10.2026“.
+- **Erneut senden:** Direkt nach dem Klick steht `aria-busy` auf `true`, danach kommt „Einladung versendet“. Nach dem Neuladen steht derselbe Stand da.
+- **Smartphone-Breite (375 px):** Die Karte zeigt „Einladung:“ mit dem Badge, der Knopf ist 44 px hoch und volle Breite. Die Seite scrollt nicht seitlich. In der Tabelle ist der Knopf 36 px hoch gezeichnet.
+- **Konsole:** Einzige Meldung ist ein 404 auf `/favicon.ico`. Das Projekt hat kein Favicon, das hat nichts mit PROJ-3 zu tun.
+
+### Abweichungen vom Design
+
+1. **„Angenommen“ heißt jede 2xx-Antwort** von Mailjet, zusammen mit `Status: success` der einen Nachricht. Das Design nannte nur HTTP 200. Mailjets API-Beschreibung nennt 201 als Erfolgscode, die Probe bekam 200. Mit „nur 200“ wäre bei 201 jede Mail als fehlgeschlagen gezählt worden.
+2. **Steuerzeichen und Zeilen- oder Absatztrenner im Trägernamen werden zu einem Leerzeichen.** Das gilt zusätzlich zur Regel mit U+200B. So beginnt der Name nie einen eigenen Absatz (AC-2).
+3. **`buildInvitationMail` wirft bei einem Linkziel, das nicht aus `platformUrlFrom` stammt.** Damit gelangt ein ungeprüfter Link nie in eine Mail. `deliverInvitation` fängt das ab und meldet „fehlgeschlagen“.
+4. **Die Mailjet-Werte aus der Umgebung werden vor der Prüfung auf „leer“ getrimmt.**
+5. **Texte mit Platzhaltern sind Funktionen** in `invitations.rules.ts`, keine Konstanten: die Grenzen mit Zeitpunkt und die Namen der Knöpfe für Screenreader.
+6. **„Nicht gefunden“ aus der Beginn-Funktion zeigt beim Senden „Diese Lizenz wurde bereits entzogen.“** Das passiert, wenn die Lizenz zwischen Sichtprüfung und Versand entzogen wurde.
+7. **`deliverInvitation` schließt einen reservierten Versand immer ab, auch nach einer Ausnahme**, dann mit „nicht angenommen“. Im Design stand das nur für ein ungültiges Linkziel. Bei einer unerwarteten Ausnahme schreibt es genau eine feste Zeile auf die Server-Konsole: „Einladung: unerwarteter Fehler beim Versand“, ohne Fehlerdetails, ohne Adresse und ohne Namen.
+8. **Das Badge hat `rounded-md` statt `rounded-full`.** Grund ist `docs/design-system.md` → Radius: Das gilt auch für Badges, nur Avatare sind rund. Geändert ist es nur hier, nicht in `src/components/ui/badge.tsx`.
+9. **Die Kartenzeile „Einladung:“ ist ein `div`, kein `p`.** Das Badge rendert ein `div`, und ein `div` in einem `p` bricht die Hydration. Ein Test schließt diese Verschachtelung aus.
+
+### Entscheidungen in der Datenbank, die das Design offen ließ
+
+- **Die Beginn-Funktion nimmt die Zeit erst nach der Sperre**, mit `clock_timestamp()`, nicht mit `now()`. `now()` wäre der Start der Transaktion. Nach dem Warten an der Sperre läge er vor der Reservierung des vorigen Aufrufs.
+- **Die Lizenz wird mit `for key share` gelesen.** Ein gleichzeitiges Entziehen wartet so, bis Versandstand und Versendung angelegt sind, und der Fremdschlüssel kann nicht scheitern.
+- **Die Abschluss-Funktion nimmt dieselbe Sperre pro Träger wie die Beginn-Funktion.** Abschluss und ein neuer Beginn laufen dadurch nicht gegeneinander.
+- **`available_from` geht als ISO-Zeitpunkt (UTC) an die App.** `invitations.data.ts` normalisiert ihn.
+
+### Hinweise für `/qa`
+
+- **WCAG 2.5.3 („Label in Name“):** Der Screenreader-Name „Einladung an <Adresse> senden“ enthält den sichtbaren Text „Einladung senden“ nicht zusammenhängend. Bei „Erneut senden“ ist der sichtbare Text bis auf die Großschreibung enthalten. Die Texte stammen so aus dem Design. Ob das ein Befund ist, entscheidet `/qa`.
+- **Arbeitskopien der Subagenten:** Solange sie unter `.claude/worktrees/` liegen, sammelt Vitest deren Testdateien mit ein. Einzelläufe deshalb mit `--exclude '.claude/**'` starten. Beim Abschluss von `/build` waren alle Arbeitskopien entfernt.
