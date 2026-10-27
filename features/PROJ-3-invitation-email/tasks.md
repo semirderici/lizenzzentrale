@@ -49,7 +49,7 @@
 <!-- Bausteine ohne Abhängigkeit untereinander. Alle Dateisätze sind disjunkt, deshalb sind alle Aufgaben [P].
      Am Ende der Stufe der Probeversand (siehe unten). Er braucht T1–T6 und läuft im Hauptverzeichnis, weil nur dort `.env.local` liegt. -->
 
-- [ ] T8 [P]  Regeln und Eingaberegel  · files: src/features/invitations/invitations.rules.ts, src/features/invitations/invitations.rules.test.ts, src/features/invitations/invitations.schema.ts, src/features/invitations/invitations.schema.test.ts  · → AC-1, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, EC-1, EC-3, EC-5, EC-9, EC-10, EC-11
+- [x] T8 [P]  Regeln und Eingaberegel  · files: src/features/invitations/invitations.rules.ts, src/features/invitations/invitations.rules.test.ts, src/features/invitations/invitations.schema.ts, src/features/invitations/invitations.schema.test.ts  · → AC-1, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, EC-1, EC-3, EC-5, EC-9, EC-10, EC-11
   - Regeln (pure):
     - Alle Texte aus design.md → Meldungstexte außer der Mail, dazu die Screenreader-Texte der Knöpfe mit der Adresse. „Keine Verbindung“ und „nicht zugeordnet“ kommen aus `src/features/account/account.rules.ts`.
     - Die zwei Texte von PROJ-2 („Diese Lizenz wurde bereits entzogen.“ und „Das hat nicht geklappt. Bitte versuchen Sie es erneut.“) sind eigene Konstanten. `invitations.rules.ts` importiert `licenses.rules.ts` nie, sonst entstünde ein Kreis. Ein Test vergleicht beide Texte mit denen aus `licenses.rules.ts`.
@@ -63,7 +63,7 @@
     - Ergebnis von `sendInvitation` → Rückmeldung (Erfolg oder Fehler mit Text), für alle Zeilen „Senden“ in design.md → Darstellung der Ergebnisse.
     - Versandausgang beim Zuweisen → Zusatztext und Art: versendet → Erfolg mit „Die Einladung ist versendet.“. Grenze des Trägers → Warnung mit der Begründung aus AC-8 und dem Zeitpunkt. Jeder andere Ausgang → Warnung mit dem Text aus AC-3.
   - Schema (pure): Eingabe von „Senden“ ist nur die Lizenz-ID, Pflicht, UUID. Mitgeschickte Felder wie Adresse oder Träger werden verworfen (Test, AC-9).
-- [ ] T9 [P]  Inhalt der Einladung  · files: src/features/invitations/invitation-mail.rules.ts, src/features/invitations/invitation-mail.rules.test.ts  · → AC-2, AC-10, AC-11, EC-7, EC-9
+- [x] T9 [P]  Inhalt der Einladung  · files: src/features/invitations/invitation-mail.rules.ts, src/features/invitations/invitation-mail.rules.test.ts  · → AC-2, AC-10, AC-11, EC-7, EC-9
   - Pure. Baut aus (Trägername, Linkziel) den Betreff, die Textfassung und die HTML-Fassung, Absätze und Reihenfolge wie in design.md → Inhalt der Einladung. Der Datenschutzhinweis aus AC-10 steht wörtlich darin, mit dem Trägernamen an allen drei Stellen.
   - Betreff genau „Ihre Lizenz für den Kurs Geprüfter Technischer Betriebswirt (IHK)“, ohne Trägernamen. Die Empfängeradresse steht nirgends in der Mail.
   - Trägername: In beiden Fassungen steht nach jedem „.“, „@“, „:“ und „/“ ein U+200B. In der HTML-Fassung wird er zusätzlich maskiert (`&`, `<`, `>`, `"`, `'`), steht nie in einem Attribut und darf an jeder Stelle umbrechen.
@@ -74,7 +74,7 @@
     - Trägernamen mit `<script>`, mit `https://evil.example`, mit `a@b.de` und mit 100 Zeichen erscheinen als reiner Text ohne Link (EC-7).
     - Kein `<img`, kein `<link`, kein `src=`. Das einzige `href` ist das Linkziel.
     - `javascript:`, ein relativer Pfad, ein Linkziel mit Zugangsdaten und eines mit 2.049 Zeichen sind ungültig.
-- [ ] T10 [P]  Mailjet-Anbindung  · files: src/features/invitations/mailjet.integration.ts, src/features/invitations/mailjet.integration.test.ts  · → AC-2, AC-3, AC-11, EC-8, EC-9
+- [x] T10 [P]  Mailjet-Anbindung  · files: src/features/invitations/mailjet.integration.ts, src/features/invitations/mailjet.integration.test.ts  · → AC-2, AC-3, AC-11, EC-8, EC-9
   - `server-only`. `sendMail({ Empfänger, Betreff, Text, HTML })` → „angenommen“ oder „fehlgeschlagen“. Liest `MAILJET_API_KEY`, `MAILJET_SECRET_KEY` und `INVITATION_SENDER_EMAIL` erst beim Aufruf. Fehlt einer oder ist er leer → „fehlgeschlagen“ ohne Anfrage.
   - POST an `https://api.mailjet.com/v3.1/send`, HTTP Basic mit Schlüssel und Secret, genau eine Nachricht:
     - Absender: die Adresse `INVITATION_SENDER_EMAIL`, Name fest „Lizenzzentrale“
@@ -85,7 +85,7 @@
   - Abbruch nach 10 Sekunden per `AbortSignal`, kein Wiederholen. „Angenommen“ heißt HTTP 200 **und** die eine Nachricht hat den Status `success`. Alles andere ist „fehlgeschlagen“: 401, 403 mit `send-0008`, Status `error`, Abbruch, Netzwerkfehler, unlesbare Antwort.
   - Bei „fehlgeschlagen“ eine Zeile auf der Server-Konsole: HTTP-Status bzw. „Zeitüberschreitung“ oder „nicht eingestellt“, dazu die `ErrorCode`s. Nie Schlüssel, Adresse, `ErrorMessage` oder Rumpf.
   - Die Tests bilden `fetch` nach. Sie prüfen den Rumpf als exaktes Objekt und den Anmeldekopf, mit Fake-Timern die Zeitgrenze, und jeden Fehlerfall. Die Konsolenzeile enthält weder Adresse noch Schlüssel noch `ErrorMessage`. Eine Adresse mit `+` geht unverändert hinaus.
-- [ ] T11 [P]  Datenzugriff auf den Versand  · files: src/features/invitations/invitations.data.ts, src/features/invitations/invitations.data.test.ts  · → AC-7, AC-8, AC-9, EC-1, EC-2, EC-5
+- [x] T11 [P]  Datenzugriff auf den Versand  · files: src/features/invitations/invitations.data.ts, src/features/invitations/invitations.data.test.ts  · → AC-7, AC-8, AC-9, EC-1, EC-2, EC-5
   - `server-only`.
   - `isLicenseVisible(Träger-ID, Lizenz-ID)` mit dem Server-Client `src/lib/supabase/server.ts` (Sitzung, RLS): eine Abfrage nach ID **und** Träger-ID, nur die ID. Ergebnis: sichtbar, nicht sichtbar oder Fehler.
   - `beginInvitation(Träger-ID, Lizenz-ID)` und `finishInvitation(Versand-ID, angenommen)` rufen die beiden Funktionen aus T7 mit dem Admin-Client `src/lib/supabase/admin.ts` auf. Die Antworten werden in feste Ergebnisse übersetzt: erlaubt mit Versand-ID und Adresse, nicht gefunden, läuft schon, Grenze der Lizenz mit Zeitpunkt, Grenze des Trägers mit Zeitpunkt. Ein Fehler, keine Antwort oder eine unbekannte Antwort ergibt „Fehler“.
