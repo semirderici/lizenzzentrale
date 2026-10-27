@@ -22,6 +22,10 @@ const NO_CONNECTION = 'Keine Verbindung. Bitte versuchen Sie es erneut.'
 const REVOKED = 'Lizenz entzogen'
 const ALREADY_REVOKED = 'Diese Lizenz wurde bereits entzogen.'
 const ALREADY_ASSIGNED = 'Diese E-Mail-Adresse hat bereits eine Lizenz.'
+// The second line of "Lizenz zugewiesen" (PROJ-3 design.md → "Meldungstexte").
+const INVITATION_SENT = 'Die Einladung ist versendet.'
+const INVITATION_FAILED =
+  'Die Einladung konnte nicht versendet werden. Sie können sie in der Liste erneut senden.'
 
 describe('LICENSE_MESSAGES', () => {
   it('enthält jeden Text wortgleich aus design.md in der Sie-Form, „Keine Verbindung“ und „nicht zugeordnet“ aus PROJ-1 (AC-1 bis AC-9, EC-1, EC-3, EC-5 bis EC-7)', () => {
@@ -135,7 +139,11 @@ describe('formatAssignedDate', () => {
 
 describe('Darstellung der Ergebnisse', () => {
   it('Zuweisen: Erfolg schließt mit Toast, „schon vergeben“ steht am Feld, „ausgeschöpft“ und „nicht zugeordnet“ als Fehler-Toast, ein Fehler im Dialog (AC-4, AC-6, EC-1, EC-5, EC-7)', () => {
-    expect(assignFeedback({ status: 'assigned' })).toEqual({ kind: 'success', message: ASSIGNED })
+    expect(assignFeedback({ status: 'assigned', invitation: { status: 'sent' } })).toEqual({
+      kind: 'success',
+      message: ASSIGNED,
+      description: INVITATION_SENT,
+    })
     expect(assignFeedback({ status: 'field_error', message: ALREADY_ASSIGNED })).toEqual({
       kind: 'field',
       message: ALREADY_ASSIGNED,
@@ -143,6 +151,50 @@ describe('Darstellung der Ergebnisse', () => {
     expect(assignFeedback({ status: 'exhausted' })).toEqual({ kind: 'error_toast', message: QUOTA_EXHAUSTED })
     expect(assignFeedback({ status: 'unassigned' })).toEqual({ kind: 'error_toast', message: UNASSIGNED })
     expect(assignFeedback({ status: 'failed' })).toEqual({ kind: 'alert', message: FAILED })
+  })
+
+  describe('Zuweisen mit Einladung (PROJ-3)', () => {
+    it('versendet: Erfolg „Lizenz zugewiesen“ mit dem Zusatz „Die Einladung ist versendet.“ (AC-1)', () => {
+      expect(assignFeedback({ status: 'assigned', invitation: { status: 'sent' } })).toStrictEqual({
+        kind: 'success',
+        message: ASSIGNED,
+        description: INVITATION_SENT,
+      })
+    })
+
+    it('fehlgeschlagen: Warnung „Lizenz zugewiesen“, der Zusatz verweist auf „Erneut senden“ in der Liste (AC-3, EC-9)', () => {
+      expect(assignFeedback({ status: 'assigned', invitation: { status: 'failed' } })).toStrictEqual({
+        kind: 'warning',
+        message: ASSIGNED,
+        description: INVITATION_FAILED,
+      })
+    })
+
+    it('Grenze des Trägers: Warnung „Lizenz zugewiesen“ mit der Begründung und dem Zeitpunkt, aufgerundet in Europe/Berlin (AC-8)', () => {
+      expect(
+        assignFeedback({
+          status: 'assigned',
+          invitation: { status: 'provider_limit', availableFrom: '2026-10-28T13:11:56.123Z' },
+        })
+      ).toStrictEqual({
+        kind: 'warning',
+        message: ASSIGNED,
+        description:
+          'Die Einladung wurde nicht versendet, weil Ihr Bildungsträger in den letzten 24 Stunden bereits 30 Einladungen versendet hat. Sie können sie ab 28.10.2026, 14:12 Uhr senden.',
+      })
+    })
+
+    it.each([
+      ['nicht gefunden', { status: 'not_found' } as const],
+      ['läuft schon', { status: 'already_sending' } as const],
+      ['Grenze der Lizenz', { status: 'license_limit', availableFrom: '2026-10-28T13:11:56.123Z' } as const],
+    ])('%s (kommt bei einer neuen Lizenz nicht vor): wie „fehlgeschlagen“', (_case, invitation) => {
+      expect(assignFeedback({ status: 'assigned', invitation })).toStrictEqual({
+        kind: 'warning',
+        message: ASSIGNED,
+        description: INVITATION_FAILED,
+      })
+    })
   })
 
   it('Entziehen: Erfolg schließt mit Toast, „bereits entzogen“ und „nicht zugeordnet“ als Fehler-Toast, ein Fehler im Dialog (AC-8, EC-3, EC-5, EC-7)', () => {

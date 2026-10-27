@@ -102,7 +102,7 @@
 <!-- Braucht die Bausteine aus Stufe 2. Alle Dateisätze sind disjunkt, deshalb sind alle Aufgaben [P].
      T15 ändert `AssignResult`, die Action dazu folgt in T17 (Stufe 4), weil sie `deliverInvitation` aus T12 braucht. Zwischen den beiden Stufen meldet `npm run typecheck` deshalb das fehlende Feld in `licenses.actions.ts`. `npm test` an der Schranke bleibt grün, und nach Stufe 4 passt der Typ wieder. -->
 
-- [ ] T12 [P]  Versand einer Einladung  · files: src/features/invitations/invitations.delivery.ts, src/features/invitations/invitations.delivery.test.ts  · → AC-1, AC-3, AC-5, AC-7, AC-8, EC-1, EC-3, EC-4, EC-5, EC-8, EC-9
+- [x] T12 [P]  Versand einer Einladung  · files: src/features/invitations/invitations.delivery.ts, src/features/invitations/invitations.delivery.test.ts  · → AC-1, AC-3, AC-5, AC-7, AC-8, EC-1, EC-3, EC-4, EC-5, EC-8, EC-9
   - `server-only`, **keine** `'use server'`-Datei: Jeder Export dort wäre vom Browser aus aufrufbar und würde der mitgeschickten Träger-ID trauen.
   - `deliverInvitation(Träger { ID, Name }, Lizenz-ID)` → Versandausgang aus T8. **Wirft nie**, jeder Fehler wird zu „fehlgeschlagen“.
   - Ablauf wie in design.md → Versand einer Einladung:
@@ -113,15 +113,15 @@
     5. Abschließen mit `finishInvitation`.
     6. Ausgang „versendet“, wenn Mailjet angenommen hat, sonst „fehlgeschlagen“, gleich ob der Abschluss geklappt hat.
   - Die Tests bilden Datenmodul und Mailjet-Anbindung nach, das Mail-Modul ist echt. Sie decken jeden Schritt oben ab. Dazu: Eine Ausnahme aus Mailjet oder dem Mail-Modul ergibt „fehlgeschlagen“, und die Adresse erscheint in keiner Konsolenausgabe.
-- [ ] T13 [P]  Lizenzliste liest den Versandstand mit  · files: src/features/licenses/licenses.data.ts, src/features/licenses/licenses.data.test.ts  · → AC-4, AC-6, AC-9
+- [x] T13 [P]  Lizenzliste liest den Versandstand mit  · files: src/features/licenses/licenses.data.ts, src/features/licenses/licenses.data.test.ts  · → AC-4, AC-6, AC-9
   - `listLicenses` liest `license_invitations` mit `status` und `last_attempt_at` eingebettet in derselben Anfrage, mit der Sitzung des Verwalters. Jede Lizenz bekommt „Versandstand oder keiner“ (Typ aus T8). Das Einbetten liefert ein Objekt oder nichts (T7 bestätigt das am gehosteten Projekt).
   - Filter, Sortierung, Ladefehler, `insertLicense` und `deleteLicense` bleiben unverändert. Die bestehenden Tests bleiben grün und werden um „mit“ und „ohne Versandstand“ ergänzt.
   - `license-list.tsx` hat einen eigenen Typ für die Lizenz. Das zusätzliche Feld ändert dort also nichts, bis T19.
-- [ ] T14 [P]  Versandstand als Badge  · files: src/features/invitations/components/invitation-status.tsx, src/features/invitations/components/invitation-status.test.tsx  · → AC-4, AC-6, EC-3
+- [x] T14 [P]  Versandstand als Badge  · files: src/features/invitations/components/invitation-status.tsx, src/features/invitations/components/invitation-status.test.tsx  · → AC-4, AC-6, EC-3
   - Bekommt den Anzeigezustand aus T8 als Wert. shadcn `badge` mit Symbol und Text, Farben und Symbole nach der Tabelle in design.md → Versandstand in der Liste (`Mail`, `Clock`, `CircleAlert`, `CircleCheck`). Die Symbole sind `aria-hidden`, das Wort trägt den Zustand.
   - Bei „Versendet am“ steht das Datum in einem `time`-Element mit dem vollen Zeitpunkt.
   - Tests: die vier Zustände mit genauem Text, das `time`-Element, Symbole für Screenreader ausgeblendet.
-- [ ] T15 [P]  Rückmeldung „Lizenz zugewiesen“ mit Zusatz  · files: src/features/licenses/licenses.rules.ts, src/features/licenses/licenses.rules.test.ts, src/features/licenses/components/assign-license-dialog.tsx, src/features/licenses/components/assign-license-dialog.test.tsx  · → AC-1, AC-3, AC-8, EC-9
+- [x] T15 [P]  Rückmeldung „Lizenz zugewiesen“ mit Zusatz  · files: src/features/licenses/licenses.rules.ts, src/features/licenses/licenses.rules.test.ts, src/features/licenses/components/assign-license-dialog.tsx, src/features/licenses/components/assign-license-dialog.test.tsx  · → AC-1, AC-3, AC-8, EC-9
   - `licenses.rules.ts`:
     - `AssignResult` „zugewiesen“ trägt den Versandausgang aus T8.
     - `Feedback` bekommt eine optionale Zusatzzeile und die neue Art „Warnung“, ein Toast, der den Dialog schließt.

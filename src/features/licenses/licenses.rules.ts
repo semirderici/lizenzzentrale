@@ -2,8 +2,10 @@
 // of an assignment, and the mapping of an action's result to what the dialog shows. No IO, no
 // framework, no clock.
 // See features/PROJ-2-license-management/design.md → "Regeln für Anzeige und Liste",
-// "Darstellung der Ergebnisse", "Meldungstexte".
+// "Darstellung der Ergebnisse", "Meldungstexte", and for the invitation note after assigning
+// features/PROJ-3-invitation-email/design.md → "Darstellung der Ergebnisse".
 import { MESSAGES } from '@/features/account/account.rules'
+import { assignInvitationNote, type DeliveryOutcome } from '@/features/invitations/invitations.rules'
 
 export const LICENSE_MESSAGES = {
   pageTitle: 'Lizenzübersicht',
@@ -96,8 +98,9 @@ export function formatAssignedDate(value: string | Date): string {
   return assignedDateFormat.format(new Date(value))
 }
 
+/** 'assigned' carries what became of the invitation; the licence exists in every case (PROJ-3 AC-1, AC-3). */
 export type AssignResult =
-  | { status: 'assigned' }
+  | { status: 'assigned'; invitation: DeliveryOutcome }
   | { status: 'field_error'; message: string }
   | { status: 'exhausted' }
   | { status: 'unassigned' }
@@ -110,20 +113,26 @@ export type RevokeResult =
   | { status: 'failed' }
 
 /**
- * What a dialog shows (design.md → "Darstellung der Ergebnisse"): 'success' and 'error_toast'
- * close it with a toast, 'field' stands at the field, 'alert' in a box in the dialog. With
- * 'field' and 'alert' the dialog stays open and the input stays.
+ * What a dialog shows (design.md → "Darstellung der Ergebnisse"): 'success', 'warning' and
+ * 'error_toast' close it with a toast, 'field' stands at the field, 'alert' in a box in the
+ * dialog. With 'field' and 'alert' the dialog stays open and the input stays. 'warning' is an
+ * action that worked whose next step did not (PROJ-3: assigned, invitation not sent); a toast
+ * may carry a second line, `description`.
  */
 export type Feedback =
-  | { kind: 'success'; message: string }
+  | { kind: 'success'; message: string; description?: string }
+  | { kind: 'warning'; message: string; description?: string }
   | { kind: 'error_toast'; message: string }
   | { kind: 'field'; message: string }
   | { kind: 'alert'; message: string }
 
 export function assignFeedback(result: AssignResult): Feedback {
   switch (result.status) {
-    case 'assigned':
-      return { kind: 'success', message: LICENSE_MESSAGES.assigned }
+    case 'assigned': {
+      // Title from PROJ-2; success or warning and the second line from the invitation (PROJ-3).
+      const note = assignInvitationNote(result.invitation)
+      return { kind: note.kind, message: LICENSE_MESSAGES.assigned, description: note.description }
+    }
     case 'field_error':
       return { kind: 'field', message: result.message }
     case 'exhausted':
