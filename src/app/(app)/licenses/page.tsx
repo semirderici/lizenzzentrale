@@ -35,6 +35,8 @@ export default async function LicensesPage() {
 
   // The quota comes from the guard, read in the same request (EC-10).
   const summary = quotaSummary(result.licenses.length, admin.trainingProvider.licenseQuota)
+  // The server's time right after reading: the list derives each invitation's state from it (PROJ-3 EC-3).
+  const now = new Date()
 
   return (
     <div className="flex flex-col gap-8 md:gap-12">
@@ -44,7 +46,7 @@ export default async function LicensesPage() {
         <AssignLicenseDialog disabled={summary.state !== 'available'} variant="main" />
       </div>
       <QuotaSummary summary={summary} />
-      <LicenseList licenses={result.licenses} summary={summary} />
+      <LicenseList licenses={result.licenses} summary={summary} now={now} />
     </div>
   )
 }

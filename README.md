@@ -2,7 +2,7 @@
 
 Die Lizenzzentrale ist ein Self-Service-Portal für Bildungsträger, die Lizenzkontingente für die E-Learning-Plattform zur IHK-Weiterbildung „Geprüfter Technischer Betriebswirt“ gekauft haben. Ein Verwalter des Trägers sieht dort, wie viele Lizenzen vergeben und frei sind, und weist Teilnehmern selbst eine Lizenz zu oder entzieht sie wieder.
 
-Diese Anleitung deckt PROJ-1 „Konto & Login“ ab: Bildungsträger registrieren, anmelden, abmelden, Datentrennung pro Träger, Startkontingent von 5 Lizenzen. Lizenzverwaltung (PROJ-2) und Einladungs-E-Mail (PROJ-3) kommen später dazu, den Stand jedes Features zeigt [`features/INDEX.md`](features/INDEX.md).
+Diese Anleitung richtet die drei Features ein: Konto & Login (PROJ-1), Lizenzverwaltung (PROJ-2) und Einladungs-E-Mail (PROJ-3). Supabase und die Bot-Prüfung braucht die App zum Starten, den E-Mail-Dienst Mailjet erst für die Einladungen. Den Stand jedes Features zeigt [`features/INDEX.md`](features/INDEX.md).
 
 ## Supabase und Bot-Prüfung einrichten
 
@@ -64,13 +64,15 @@ Nicht verwechseln: In `.env.local` steht das Secret `1x…`, das immer besteht. 
 
 `.env.local` ist über `.gitignore` vom Repository ausgeschlossen. Nach einer Änderung an der Datei `npm run dev` neu starten.
 
+Die vier Werte für den E-Mail-Dienst kommen im Abschnitt [E-Mail-Dienst einrichten (Mailjet)](#e-mail-dienst-einrichten-mailjet) dazu.
+
 ### 5. Datenbankschema einspielen
 
 ```bash
 supabase login
 supabase link --project-ref <ref>   # fragt nach dem Datenbank-Passwort aus Schritt 2
-supabase db push                    # spielt die drei Migrationen der Reihe nach ein
-supabase migration list             # Local und Remote zeigen dieselben drei Migrationen
+supabase db push                    # spielt die sechs Migrationen der Reihe nach ein
+supabase migration list             # Local und Remote zeigen dieselben sechs Migrationen
 ```
 
 Die Migrationen in `supabase/migrations/`:
@@ -78,6 +80,9 @@ Die Migrationen in `supabase/migrations/`:
 1. `20261021120000_proj1_training_providers.sql`: Tabellen `training_providers` und `training_provider_members` mit Row Level Security, Leseregeln und ausdrücklich gesetzten Rechten, dazu die Trigger, die bei der Registrierung Träger und Mitgliedschaft anlegen und einen Träger ohne Verwalter löschen
 2. `20261021120100_proj1_login_throttle.sql`: Login- und Registrierungsbremse im Schema `private` (drei Tabellen, fünf Funktionen, die nur der Server-Schlüssel aufrufen darf) und ein Trigger, der beim Löschen eines Kontos dessen Login-Einträge entfernt
 3. `20261021120200_proj1_cleanup_job.sql`: Erweiterung `pg_cron` mit dem stündlichen Aufräumjob `license-center-cleanup`, der die Einträge der Bremsen nach spätestens 24 Stunden löscht
+4. `20261025120000_proj2_licenses.sql`: Tabelle `licenses` mit Row Level Security und ausdrücklich gesetzten Rechten, dazu der Trigger, der vor jedem Anlegen das Kontingent und „eine Lizenz pro Adresse“ prüft, auch bei gleichzeitigen Anfragen
+5. `20261026120000_proj2_licenses_email_rule.sql`: macht die Regel der Spalte für die Teilnehmer-Adresse genau zur Regel der App
+6. `20261026150000_proj3_license_invitations.sql`: Versandstand pro Lizenz (`license_invitations`, Verwalter dürfen nur lesen), der Versandzähler für die Versandgrenzen im Schema `private`, zwei Datenbankfunktionen für Beginn und Abschluss eines Versands, die nur der Server-Schlüssel aufrufen darf, und der Aufräumjob `license-center-invitation-cleanup`, der die Zähler alle 5 Minuten nach 24 Stunden löscht
 
 Ist in der Shell ein `SUPABASE_ACCESS_TOKEN` eines anderen Supabase-Kontos gesetzt, nutzt die CLI dieses statt des Logins. Dann jedem Befehl `env -u SUPABASE_ACCESS_TOKEN` voranstellen, z. B. `env -u SUPABASE_ACCESS_TOKEN supabase db push`.
 
@@ -90,7 +95,7 @@ npm run dev
 
 http://localhost:3000 öffnen, die App leitet zur Anmeldung weiter.
 
-1. **Registrieren** („Noch kein Konto? Registrieren“): Name des Bildungsträgers, E-Mail-Adresse und zweimal ein Passwort mit mindestens 8 Zeichen. Die Bot-Prüfung besteht mit den Testschlüsseln immer, danach wird „Registrieren“ aktiv. Anschließend ist man angemeldet und landet auf der „Lizenzübersicht“, oben rechts stehen der Name des Trägers und „Abmelden“. Der Träger startet mit 5 Lizenzen: in der Tabellenansicht `training_providers.license_quota`, in der App angezeigt erst mit PROJ-2.
+1. **Registrieren** („Noch kein Konto? Registrieren“): Name des Bildungsträgers, E-Mail-Adresse und zweimal ein Passwort mit mindestens 8 Zeichen. Die Bot-Prüfung besteht mit den Testschlüsseln immer, danach wird „Registrieren“ aktiv. Anschließend ist man angemeldet und landet auf der „Lizenzübersicht“, oben rechts stehen der Name des Trägers und „Abmelden“. Der Träger startet mit 5 Lizenzen: Die „Lizenzübersicht“ zeigt das Kontingent, in der Tabellenansicht steht es in `training_providers.license_quota`.
 2. **Abmelden:** „Abmelden“ führt zurück zur Anmeldung. „Zurück“ im Browser zeigt keine geschützte Seite mehr.
 3. **Anmelden** mit derselben E-Mail-Adresse und demselben Passwort: wieder die „Lizenzübersicht“.
 
@@ -112,6 +117,45 @@ npm run check     # Lint, Typen, Struktur, Tests und Build in einem Lauf
 - Die Integrationstests laufen gegen das verbundene gehostete Projekt und lesen dieselben Schlüssel aus `.env.local` wie `npm run dev`. Dafür müssen das Schema eingespielt (Schritt 5) und die Dashboard-Einstellungen gesetzt sein (Schritt 3). Ein Test prüft z. B., dass eine direkte Anmeldung mit dem öffentlichen Schlüssel an Supabases CAPTCHA scheitert.
 - Die Tests legen Konten mit Adressen wie `lizenzzentrale-test-…@example.com` oder `…@lizenzzentrale-test.de` an und löschen sie am Ende wieder. Ihre Einträge in den Bremsen entfernt der stündliche Aufräumjob, spätestens nach 24 Stunden.
 - Supabase begrenzt Anmeldungen pro IP-Adresse. Wer die Suite viele Male hintereinander startet, kann kurz an diese Grenze stoßen und muss dann ein paar Minuten warten.
+- Die Tests schicken keine echten Mails: Mailjet ist in allen Tests nachgebildet, die Mailjet-Werte in `.env.local` lesen sie nicht.
+
+## E-Mail-Dienst einrichten (Mailjet)
+
+Bei jeder Zuweisung schickt die App dem Teilnehmer eine Einladung über [Mailjet](https://www.mailjet.com), im kostenlosen Tarif mit 200 Mails am Tag für die ganze App. Ohne diese Einrichtung startet die App trotzdem: Lizenzen lassen sich zuweisen, die Einladung steht dann auf „Fehlgeschlagen“.
+
+### 1. Konto, Absenderadresse, Schlüssel
+
+1. Auf [mailjet.com](https://www.mailjet.com) → Sign up ein Konto im Tarif **Free** anlegen. Eine Kreditkarte ist nicht nötig.
+2. Account settings → Senders & domains → „Add a sender address“: eine eigene Adresse eintragen und den Link in der Bestätigungsmail öffnen. Mailjet versendet nur von bestätigten Absendern.
+   - Eine Gmail-Adresse geht. Die Einladungen landen damit aber oft im Spam-Ordner, und das Mailprogramm zeigt „Lizenzzentrale über …mailjet.com“. Besser ist eine Adresse einer eigenen Domain, die in Mailjet mit SPF und DKIM eingerichtet ist.
+   - Keine Adresse von Yahoo, AOL oder einem anderen Anbieter mit strenger DMARC-Regel: Deren Mails werden abgewiesen.
+   - Eine weitere Freischaltung durch Mailjet war beim Einrichten dieses Projekts nicht nötig: Die erste Einladung kam direkt bei einer anderen Adresse als der Absenderadresse an.
+3. Account settings → Tracking: Öffnungs- und Klickverfolgung **aus**. Die App schaltet beides für jede Mail ohnehin ab, die Kontoeinstellung ist die zweite Linie.
+4. Account settings → REST API → API key management: API-Key und Secret-Key des Hauptschlüssels kopieren.
+
+### 2. Umgebungsvariablen
+
+In `.env.local` diese vier Werte setzen (die Platzhalter stehen in `.env.local.example`):
+
+```dotenv
+MAILJET_API_KEY=your-mailjet-api-key
+MAILJET_SECRET_KEY=your-mailjet-secret-key
+INVITATION_SENDER_EMAIL=you@example.org
+LEARNING_PLATFORM_URL=https://lernplattform.example.org
+```
+
+- `MAILJET_API_KEY` und `MAILJET_SECRET_KEY`: die beiden Schlüssel aus Schritt 4. **Nur für den Server:** nie mit `NEXT_PUBLIC_` davor, nie einchecken.
+- `INVITATION_SENDER_EMAIL`: die in Mailjet bestätigte Absenderadresse. Als Name des Absenders steht immer „Lizenzzentrale“.
+- `LEARNING_PLATFORM_URL`: das Ziel des Knopfs „Zur Lernplattform“ in der Einladung, eine vollständige Adresse mit `https://` oder `http://`, ohne Benutzername und Passwort. Solange es keine öffentliche Adresse der Plattform gibt, ein selbst gewähltes Ziel, z. B. `http://localhost:3000/`.
+
+Fehlt einer der Werte oder ist das Linkziel ungültig, geht keine Mail hinaus, und die Einladung steht auf „Fehlgeschlagen“. Nach einer Änderung `npm run dev` neu starten.
+
+### 3. Ausprobieren
+
+- **Nur an eigene Adressen senden**, am besten die eigene mit `+`-Zusatz (`name+test1@gmail.com`). **Nie an `example.com`:** Diese Adressen gibt es nicht, Mailjet zählt sie als Rückläufer, und zu viele gefährden das Konto. Bei Lizenzen mit solchen Adressen, z. B. aus abgebrochenen Testläufen, nie „Einladung senden“ klicken.
+- **Zuweisen:** „Lizenz zuweisen“ mit einer eigenen Adresse. Der Toast „Lizenz zugewiesen“ meldet „Die Einladung ist versendet.“, die Liste zeigt „Versendet am …“. Die Mail kommt nach kurzer Zeit an, auch im Spam-Ordner nachsehen.
+- **Erneut senden** schickt dieselbe Einladung noch einmal. Pro Lizenz gehen höchstens 3 Einladungen in 24 Stunden hinaus, pro Bildungsträger höchstens 30.
+- **Entziehen** löscht die Lizenz samt Versandstand. Mailjet selbst behält Empfänger als Kontakte und den Versandverlauf, bis man sie dort löscht (Contacts).
 
 ---
 

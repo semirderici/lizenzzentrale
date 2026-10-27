@@ -164,7 +164,7 @@
 <!-- Braucht Badge (T14), Knopf (T18) und die Daten aus T13. T19 und T20 teilen sich keine Datei, deshalb beide [P].
      Die [user go-live]-Aufgaben macht /deploy. Sie blockieren weder /qa noch „Approved“. -->
 
-- [ ] T19 [P]  Spalte „Einladung“ in der Lizenzliste  · files: src/features/licenses/components/license-list.tsx, src/features/licenses/components/license-list.test.tsx, src/app/(app)/licenses/page.tsx  · → AC-1, AC-3, AC-4, AC-5, AC-6, EC-3
+- [x] T19 [P]  Spalte „Einladung“ in der Lizenzliste  · files: src/features/licenses/components/license-list.tsx, src/features/licenses/components/license-list.test.tsx, src/app/(app)/licenses/page.tsx  · → AC-1, AC-3, AC-4, AC-5, AC-6, EC-3
   - `license-list.tsx` bekommt `now` von der Seite und berechnet pro Lizenz den Anzeigezustand mit T8. Sie importiert nie `*.data.ts`, `*.delivery.ts` oder `*.integration.ts`.
   - Tabelle: Spalte „Einladung“ vor „Aktion“, mit Badge aus T14 und Knopf aus T18 in der kleinen Darstellung. Bei „Wird versendet“ steht kein Knopf.
   - Karte: „Einladung:“ mit Badge, darunter der Knopf in voller Breite, darunter „Entziehen“ wie bisher.
@@ -177,7 +177,7 @@
     - Entziehen.
     - Smartphone-Breite.
     - **Nie** „Einladung senden“ bei den `example.com`-Lizenzen aus PROJ-2 klicken.
-- [ ] T20 [P]  README: E-Mail-Dienst einrichten  · files: README.md  · → AC-1, AC-2, AC-11, EC-9 (PRD → Erfolgskriterien: nachvollziehbar für den Prüfer)
+- [x] T20 [P]  README: E-Mail-Dienst einrichten  · files: README.md  · → AC-1, AC-2, AC-11, EC-9 (PRD → Erfolgskriterien: nachvollziehbar für den Prüfer)
   - Neuer Abschnitt „E-Mail-Dienst einrichten (Mailjet)“:
     - Konto im Tarif Free, ohne Kreditkarte.
     - Absenderadresse bestätigen, und welche Adressen nicht gehen.
