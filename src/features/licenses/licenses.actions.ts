@@ -4,8 +4,11 @@
 // bypass the dialog (AC-5). The training provider always comes from the guard, never from the
 // input (AC-10). After every answer from the database the page is refreshed, so numbers and list
 // come from the database, not from a calculation in the browser (AC-1, EC-1, EC-10).
+// A new licence sends its invitation before that refresh, so the list already shows the state of
+// the invitation (PROJ-3 design.md → Zuweisen).
 import { refresh } from 'next/cache'
 import { requireTrainingProvider } from '@/features/account/session.data'
+import { deliverInvitation } from '@/features/invitations/invitations.delivery'
 import { deleteLicense, insertLicense } from './licenses.data'
 import { LICENSE_MESSAGES, type AssignResult, type RevokeResult } from './licenses.rules'
 import { assignLicenseSchema, revokeLicenseSchema } from './licenses.schema'
@@ -24,10 +27,14 @@ export async function assignLicense(input: unknown): Promise<AssignResult> {
 
   const result = await insertLicense(admin.trainingProvider.id, parsed.data.email)
   switch (result.status) {
-    case 'created':
-      // PROJ-3 starts the invitation here, with result.id.
+    case 'created': {
+      // deliverInvitation never throws: the licence exists, so the result is always 'assigned',
+      // carrying what became of the invitation (PROJ-3 AC-1, AC-3, AC-8).
+      const { id, name } = admin.trainingProvider
+      const invitation = await deliverInvitation({ id, name }, result.id)
       refresh()
-      return { status: 'assigned' }
+      return { status: 'assigned', invitation }
+    }
     case 'already_assigned':
       refresh()
       return { status: 'field_error', message: LICENSE_MESSAGES.alreadyAssigned }

@@ -134,7 +134,7 @@
 
 <!-- Braucht den Versand aus T12 und die Regeln aus T15. Die beiden Dateisätze sind disjunkt, deshalb beide [P]. -->
 
-- [ ] T16 [P]  Server Action „Senden“  · files: src/features/invitations/invitations.actions.ts, src/features/invitations/invitations.actions.test.ts  · → AC-5, AC-6, AC-7, AC-8, AC-9, EC-1, EC-5, EC-11, EC-12
+- [x] T16 [P]  Server Action „Senden“  · files: src/features/invitations/invitations.actions.ts, src/features/invitations/invitations.actions.test.ts  · → AC-5, AC-6, AC-7, AC-8, AC-9, EC-1, EC-5, EC-11, EC-12
   - `'use server'`. `sendInvitation(Eingabe)` wie in design.md → Senden und erneut senden:
     1. Wächter `requireTrainingProvider()` aus `src/features/account/session.data.ts`. Abgemeldet → Weiterleitung auf `/login?reason=session`. Nicht zugeordnet → „nicht zugeordnet“, ohne etwas zu lesen oder zu senden (EC-11).
     2. Schema aus T8. Ungültig → „Fehler“.
@@ -142,7 +142,7 @@
     4. `deliverInvitation` mit ID und Name des Trägers aus dem Wächter, dann `refresh()`, dann das Ergebnis nach dem Ausgang.
   - Das Kontingent spielt keine Rolle (EC-12).
   - Die Tests bilden Wächter, Datenmodul, Versand und `refresh` nach und decken jeden Schritt oben ab. Dazu: Eine mitgeschickte Adresse und ein mitgeschickter Träger werden ignoriert (AC-9). Eine Lizenz von B wird nie versendet. Mit Kontingent 0 oder überschrittenem Kontingent wird trotzdem versendet.
-- [ ] T17 [P]  Zuweisen versendet die Einladung  · files: src/features/licenses/licenses.actions.ts, src/features/licenses/licenses.actions.test.ts  · → AC-1, AC-3, AC-8, EC-6, EC-9
+- [x] T17 [P]  Zuweisen versendet die Einladung  · files: src/features/licenses/licenses.actions.ts, src/features/licenses/licenses.actions.test.ts  · → AC-1, AC-3, AC-8, EC-6, EC-9
   - `assignLicense`: Nach „angelegt“ zuerst `deliverInvitation` mit ID und Name des Trägers aus dem Wächter und der ID der neuen Lizenz, dann `refresh()`, dann „zugewiesen“ mit dem Versandausgang. Nach „angelegt“ ist das Ergebnis immer „zugewiesen“, nie „Fehler“.
   - Alle anderen Ergebnisse bleiben wie in PROJ-2, ohne Versand. `revokeLicense` bleibt unverändert.
   - Die Tests bilden den Versand nach. Geprüft wird: Jeder Ausgang geht unverändert ins Ergebnis. Der Versand läuft vor `refresh()`. Bei „schon vergeben“, „ausgeschöpft“, „Fehler“ und „nicht zugeordnet“ wird nicht versendet. Die übrigen Tests von PROJ-2 bleiben grün.
