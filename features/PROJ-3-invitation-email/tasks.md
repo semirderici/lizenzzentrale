@@ -151,7 +151,7 @@
 
 <!-- Braucht die Action aus T16. Nur eine Aufgabe. -->
 
-- [ ] T18  Knopf „Erneut senden“ / „Einladung senden“  · files: src/features/invitations/components/send-invitation-button.tsx, src/features/invitations/components/send-invitation-button.test.tsx  · → AC-4, AC-5, AC-6, AC-9, EC-1, EC-10, EC-11
+- [x] T18  Knopf „Erneut senden“ / „Einladung senden“  · files: src/features/invitations/components/send-invitation-button.tsx, src/features/invitations/components/send-invitation-button.test.tsx  · → AC-4, AC-5, AC-6, AC-9, EC-1, EC-10, EC-11
   - Client. Werte: Lizenz-ID, Adresse (nur für den Screenreader-Text), Art (senden / erneut senden), Darstellung (klein / volle Breite).
   - Variante `outline`. Klein ist 36 px hoch gezeichnet, mit einer Tippfläche von 44 × 44 px. Volle Breite ist 44 px hoch. Sichtbarer Text und Screenreader-Text kommen aus T8.
   - Der Klick ruft `sendInvitation` nur mit der Lizenz-ID auf, ohne Formular, das der Browser nativ absenden könnte.
