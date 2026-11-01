@@ -1,14 +1,18 @@
 // @vitest-environment node
-// The guard, the data module and refresh() are replaced, so each test sees exactly which steps a
-// request reaches (design.md → Zuweisen, Entziehen). Schema and rules are the real ones.
+// The guard, the data module, the sending of the invitation (PROJ-3) and refresh() are replaced,
+// so each test sees exactly which steps a request reaches (design.md → Zuweisen, Entziehen).
+// Schema and rules are the real ones.
 import { refresh } from 'next/cache'
 import { requireTrainingProvider } from '@/features/account/session.data'
+import { deliverInvitation } from '@/features/invitations/invitations.delivery'
+import type { DeliveryOutcome } from '@/features/invitations/invitations.rules'
 import { assignLicense, revokeLicense } from './licenses.actions'
 import { deleteLicense, insertLicense } from './licenses.data'
 
 vi.mock('next/cache', () => ({ refresh: vi.fn() }))
 vi.mock('@/features/account/session.data', () => ({ requireTrainingProvider: vi.fn() }))
 vi.mock('./licenses.data', () => ({ insertLicense: vi.fn(), deleteLicense: vi.fn() }))
+vi.mock('@/features/invitations/invitations.delivery', () => ({ deliverInvitation: vi.fn() }))
 
 const TEXT = {
   emailRequired: 'Bitte geben Sie die E-Mail-Adresse des Teilnehmers ein.',
@@ -31,6 +35,7 @@ beforeEach(() => {
   vi.mocked(requireTrainingProvider).mockResolvedValue(assigned)
   vi.mocked(insertLicense).mockResolvedValue({ status: 'created', id: LICENSE_ID })
   vi.mocked(deleteLicense).mockResolvedValue({ status: 'revoked' })
+  vi.mocked(deliverInvitation).mockResolvedValue({ status: 'sent' })
 })
 
 afterEach(() => {
@@ -39,7 +44,10 @@ afterEach(() => {
 
 describe('assignLicense', () => {
   it('legt die Lizenz für den Träger aus dem Wächter an, frischt die Seite auf und meldet „zugewiesen“ (AC-4)', async () => {
-    expect(await assignLicense({ email: 'teilnehmer@example.com' })).toEqual({ status: 'assigned' })
+    expect(await assignLicense({ email: 'teilnehmer@example.com' })).toEqual({
+      status: 'assigned',
+      invitation: { status: 'sent' },
+    })
     expect(insertLicense).toHaveBeenCalledWith(PROVIDER_ID, 'teilnehmer@example.com')
     expect(refresh).toHaveBeenCalledTimes(1)
   })
@@ -59,7 +67,10 @@ describe('assignLicense', () => {
   })
 
   it('weist die eigene Adresse des Verwalters wie jede andere zu (EC-9)', async () => {
-    expect(await assignLicense({ email: 'verwalter@akademie-nord.de' })).toEqual({ status: 'assigned' })
+    expect(await assignLicense({ email: 'verwalter@akademie-nord.de' })).toEqual({
+      status: 'assigned',
+      invitation: { status: 'sent' },
+    })
     expect(insertLicense).toHaveBeenCalledWith(PROVIDER_ID, 'verwalter@akademie-nord.de')
   })
 
@@ -124,6 +135,64 @@ describe('assignLicense', () => {
     )
     expect(insertLicense).not.toHaveBeenCalled()
     expect(refresh).not.toHaveBeenCalled()
+  })
+})
+
+describe('assignLicense versendet die Einladung (PROJ-3)', () => {
+  it('versendet für die neue Lizenz mit dem Träger aus dem Wächter, vor dem Auffrischen (AC-1)', async () => {
+    await assignLicense({ email: 'teilnehmer@example.com', trainingProviderId: FOREIGN_PROVIDER_ID })
+
+    expect(deliverInvitation).toHaveBeenCalledTimes(1)
+    // Only id and name: the quota plays no role in sending, and nothing comes from the input.
+    expect(deliverInvitation).toHaveBeenCalledWith({ id: PROVIDER_ID, name: 'Akademie Nord' }, LICENSE_ID)
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(deliverInvitation).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(refresh).mock.invocationCallOrder[0]
+    )
+  })
+
+  it.each<DeliveryOutcome>([
+    { status: 'sent' },
+    { status: 'failed' },
+    { status: 'provider_limit', availableFrom: '2026-10-28T13:11:56.123Z' },
+    { status: 'license_limit', availableFrom: '2026-10-28T13:11:56.123Z' },
+    { status: 'already_sending' },
+    { status: 'not_found' },
+  ])('gibt den Versandausgang %j unverändert weiter, das Ergebnis bleibt „zugewiesen“ (AC-1, AC-3, AC-8, EC-6, EC-9)', async (outcome) => {
+    vi.mocked(deliverInvitation).mockResolvedValue(outcome)
+
+    expect(await assignLicense({ email: 'teilnehmer@example.com' })).toStrictEqual({
+      status: 'assigned',
+      invitation: outcome,
+    })
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['schon vergeben', { status: 'already_assigned' } as const],
+    ['ausgeschöpft', { status: 'exhausted' } as const],
+    ['Fehler der Datenbank', { status: 'failed' } as const],
+  ])('%s: keine Einladung', async (_case, result) => {
+    vi.mocked(insertLicense).mockResolvedValue(result)
+    await assignLicense({ email: 'teilnehmer@example.com' })
+    expect(deliverInvitation).not.toHaveBeenCalled()
+  })
+
+  it('nicht zugeordnet, Feldfehler oder abgemeldet: keine Einladung', async () => {
+    vi.mocked(requireTrainingProvider).mockResolvedValueOnce({ status: 'unassigned', userId: 'user-1' })
+    await assignLicense({ email: 'teilnehmer@example.com' })
+
+    await assignLicense({ email: 'keine-adresse' })
+
+    vi.mocked(requireTrainingProvider).mockRejectedValueOnce(new Error('NEXT_REDIRECT /login?reason=session'))
+    await expect(assignLicense({ email: 'teilnehmer@example.com' })).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(deliverInvitation).not.toHaveBeenCalled()
+  })
+
+  it('Entziehen versendet keine Mail', async () => {
+    await revokeLicense({ licenseId: LICENSE_ID })
+    expect(deliverInvitation).not.toHaveBeenCalled()
   })
 })
 

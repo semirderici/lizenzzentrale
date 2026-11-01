@@ -4,9 +4,21 @@
 // here. Each function is exactly one statement, all or nothing (EC-5). Nothing ever filters by
 // an address: Supabase logs Data-API URLs, and a participant's address must not end up there.
 import 'server-only'
+import type { InvitationState, InvitationStatus } from '@/features/invitations/invitations.rules'
 import { createClient } from '@/lib/supabase/server'
 
-export type LicenseRow = { id: string; email: string; assignedAt: string }
+/** invitation: the state of the last invitation (PROJ-3), or null = never invited. */
+export type LicenseRow = { id: string; email: string; assignedAt: string; invitation: InvitationState }
+
+// Without generated database types supabase-js types an embedded relation as an array. The
+// licence id is the invitation's primary key, so PostgREST embeds one object, or null when there
+// is none (PROJ-3, confirmed by src/test/db/invitations.test.ts).
+type LicenseListRow = {
+  id: string
+  email: string
+  assigned_at: string
+  license_invitations: { status: InvitationStatus; last_attempt_at: string } | null
+}
 
 export type ListLicensesResult = { status: 'ok'; licenses: LicenseRow[] } | { status: 'load_error' }
 
@@ -20,21 +32,30 @@ export type DeleteLicenseResult = { status: 'revoked' } | { status: 'not_found' 
 
 /**
  * All licences of the training provider, newest first; equal times ordered by id so the order
- * stays stable (design.md → Übersicht lesen). A failure is never an empty list (EC-6).
+ * stays stable (design.md → Übersicht lesen). A failure is never an empty list (EC-6). The state
+ * of each invitation comes in the same query, through Row Level Security as well (PROJ-3 AC-4).
  */
 export async function listLicenses(trainingProviderId: string): Promise<ListLicensesResult> {
   try {
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('licenses')
-      .select('id, email, assigned_at')
+      .select('id, email, assigned_at, license_invitations ( status, last_attempt_at )')
       .eq('training_provider_id', trainingProviderId)
       .order('assigned_at', { ascending: false })
       .order('id', { ascending: false })
+      .overrideTypes<LicenseListRow[], { merge: false }>()
     if (error || !data) return { status: 'load_error' }
     return {
       status: 'ok',
-      licenses: data.map((row) => ({ id: row.id, email: row.email, assignedAt: row.assigned_at })),
+      licenses: data.map((row) => ({
+        id: row.id,
+        email: row.email,
+        assignedAt: row.assigned_at,
+        invitation: row.license_invitations
+          ? { status: row.license_invitations.status, lastAttemptAt: row.license_invitations.last_attempt_at }
+          : null,
+      })),
     }
   } catch {
     return { status: 'load_error' }

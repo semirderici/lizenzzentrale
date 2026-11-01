@@ -14,13 +14,13 @@
      T7 ohne [P]: `supabase db push` und die Datenbanktests brauchen die verbundene CLI und `.env.local`, beides gibt es nur im Hauptverzeichnis, nicht in einer Arbeitskopie.
      Die Zeile „Migration einspielen“ aus design.md → Einstellungen durch den Nutzer ist keine [user]-Aufgabe: Die Migration liegt im Repository, und /build spielt sie wie in PROJ-1 und PROJ-2 selbst ein (T7). -->
 
-- [ ] T1 [user]  Mailjet-Konto anlegen  · where: [mailjet.com](https://www.mailjet.com) → Sign up, Tarif „Free“, ohne Kreditkarte  · → AC-1
-- [ ] T2 [user]  Absenderadresse bestätigen  · where: Mailjet → Account settings → Senders & domains → Add a sender address, dann den Link in der Bestätigungsmail öffnen. Eine eigene Adresse, am besten von einer eigenen Domain. Gmail geht, die Einladungen landen damit aber eher im Spam. **Keine** Adresse von Yahoo, AOL oder anderen Anbietern mit strenger DMARC-Regel.  · → AC-2
-- [ ] T3 [user]  Tracking im Konto aus  · where: Mailjet → Account settings → Tracking-Einstellungen → Öffnungs- und Klickverfolgung **aus** (zweite Linie, die App schaltet beides pro Mail ohnehin ab)  · → AC-11
-- [ ] T4 [user]  Schlüssel erzeugen  · where: Mailjet → Account settings → REST API → API key management → API-Key und Secret-Key des Hauptschlüssels  · → AC-1
-- [ ] T5 [user]  Platzhalter der neuen Variablen dokumentieren  · where: `.env.local.example` (der Agent darf die Datei nicht bearbeiten) → `MAILJET_API_KEY=your-mailjet-api-key`, `MAILJET_SECRET_KEY=your-mailjet-secret-key`, `INVITATION_SENDER_EMAIL=you@example.org`, `LEARNING_PLATFORM_URL=https://lernplattform.example.org`  · → EC-9
-- [ ] T6 [user]  Echte Werte eintragen  · where: `.env.local` → `MAILJET_API_KEY` und `MAILJET_SECRET_KEY` aus T4, `INVITATION_SENDER_EMAIL` = die bestätigte Adresse aus T2, `LEARNING_PLATFORM_URL` = eine selbst gewählte Adresse mit `https:` (bis zum Live-Gang, `spec.md` → Offene Fragen). Alle nur für den Server, keine mit `NEXT_PUBLIC_`. Danach `npm run dev` neu starten.  · → AC-1, AC-2
-- [ ] T7  Migration Versandstand und Versandgrenze mit Datenbanktests  · files: supabase/migrations/20261026150000_proj3_license_invitations.sql, src/test/db/invitations.test.ts  · → AC-6, AC-7, AC-8, AC-9, AC-12, EC-1, EC-2, EC-3, EC-4, EC-5, EC-6, EC-8, EC-12
+- [x] T1 [user]  Mailjet-Konto anlegen  · where: [mailjet.com](https://www.mailjet.com) → Sign up, Tarif „Free“, ohne Kreditkarte  · → AC-1
+- [x] T2 [user]  Absenderadresse bestätigen  · where: Mailjet → Account settings → Senders & domains → Add a sender address, dann den Link in der Bestätigungsmail öffnen. Eine eigene Adresse, am besten von einer eigenen Domain. Gmail geht, die Einladungen landen damit aber eher im Spam. **Keine** Adresse von Yahoo, AOL oder anderen Anbietern mit strenger DMARC-Regel.  · → AC-2
+- [x] T3 [user]  Tracking im Konto aus  · where: Mailjet → Account settings → Tracking-Einstellungen → Öffnungs- und Klickverfolgung **aus** (zweite Linie, die App schaltet beides pro Mail ohnehin ab)  · → AC-11
+- [x] T4 [user]  Schlüssel erzeugen  · where: Mailjet → Account settings → REST API → API key management → API-Key und Secret-Key des Hauptschlüssels  · → AC-1
+- [x] T5 [user]  Platzhalter der neuen Variablen dokumentieren  · where: `.env.local.example` (der Agent darf die Datei nicht bearbeiten) → `MAILJET_API_KEY=your-mailjet-api-key`, `MAILJET_SECRET_KEY=your-mailjet-secret-key`, `INVITATION_SENDER_EMAIL=you@example.org`, `LEARNING_PLATFORM_URL=https://lernplattform.example.org`  · → EC-9
+- [x] T6 [user]  Echte Werte eintragen  · where: `.env.local` → `MAILJET_API_KEY` und `MAILJET_SECRET_KEY` aus T4, `INVITATION_SENDER_EMAIL` = die bestätigte Adresse aus T2, `LEARNING_PLATFORM_URL` = eine selbst gewählte Adresse mit `https:` (bis zum Live-Gang, `spec.md` → Offene Fragen). Alle nur für den Server, keine mit `NEXT_PUBLIC_`. Danach `npm run dev` neu starten.  · → AC-1, AC-2
+- [x] T7  Migration Versandstand und Versandgrenze mit Datenbanktests  · files: supabase/migrations/20261026150000_proj3_license_invitations.sql, src/test/db/invitations.test.ts  · → AC-6, AC-7, AC-8, AC-9, AC-12, EC-1, EC-2, EC-3, EC-4, EC-5, EC-6, EC-8, EC-12
   - Migration (Details: design.md → Datenmodell, Datenbankfunktionen, Aufräumjob, Zugriffsregeln in der Datenbank):
     - `public.license_invitations` mit genau vier Spalten: `license_id` (Primärschlüssel, Löschkaskade zu `licenses`), `training_provider_id` (Pflicht, Löschkaskade zu `training_providers`, ein Index), `status` (`sending` / `sent` / `failed`), `last_attempt_at` (Pflicht, setzt die Datenbank).
     - Rechte nach der Regel aus PROJ-1: erst alle entziehen, dann für `authenticated` nur Lesen. Keine Rechte für `anon`. RLS ausdrücklich einschalten. Eine Leseregel für `authenticated`, gleich gebaut wie die von `licenses` (Mitgliedschaft mit der Rolle `admin`, Konto-ID einmal pro Abfrage ausgewertet).
@@ -49,7 +49,7 @@
 <!-- Bausteine ohne Abhängigkeit untereinander. Alle Dateisätze sind disjunkt, deshalb sind alle Aufgaben [P].
      Am Ende der Stufe der Probeversand (siehe unten). Er braucht T1–T6 und läuft im Hauptverzeichnis, weil nur dort `.env.local` liegt. -->
 
-- [ ] T8 [P]  Regeln und Eingaberegel  · files: src/features/invitations/invitations.rules.ts, src/features/invitations/invitations.rules.test.ts, src/features/invitations/invitations.schema.ts, src/features/invitations/invitations.schema.test.ts  · → AC-1, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, EC-1, EC-3, EC-5, EC-9, EC-10, EC-11
+- [x] T8 [P]  Regeln und Eingaberegel  · files: src/features/invitations/invitations.rules.ts, src/features/invitations/invitations.rules.test.ts, src/features/invitations/invitations.schema.ts, src/features/invitations/invitations.schema.test.ts  · → AC-1, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, EC-1, EC-3, EC-5, EC-9, EC-10, EC-11
   - Regeln (pure):
     - Alle Texte aus design.md → Meldungstexte außer der Mail, dazu die Screenreader-Texte der Knöpfe mit der Adresse. „Keine Verbindung“ und „nicht zugeordnet“ kommen aus `src/features/account/account.rules.ts`.
     - Die zwei Texte von PROJ-2 („Diese Lizenz wurde bereits entzogen.“ und „Das hat nicht geklappt. Bitte versuchen Sie es erneut.“) sind eigene Konstanten. `invitations.rules.ts` importiert `licenses.rules.ts` nie, sonst entstünde ein Kreis. Ein Test vergleicht beide Texte mit denen aus `licenses.rules.ts`.
@@ -63,7 +63,7 @@
     - Ergebnis von `sendInvitation` → Rückmeldung (Erfolg oder Fehler mit Text), für alle Zeilen „Senden“ in design.md → Darstellung der Ergebnisse.
     - Versandausgang beim Zuweisen → Zusatztext und Art: versendet → Erfolg mit „Die Einladung ist versendet.“. Grenze des Trägers → Warnung mit der Begründung aus AC-8 und dem Zeitpunkt. Jeder andere Ausgang → Warnung mit dem Text aus AC-3.
   - Schema (pure): Eingabe von „Senden“ ist nur die Lizenz-ID, Pflicht, UUID. Mitgeschickte Felder wie Adresse oder Träger werden verworfen (Test, AC-9).
-- [ ] T9 [P]  Inhalt der Einladung  · files: src/features/invitations/invitation-mail.rules.ts, src/features/invitations/invitation-mail.rules.test.ts  · → AC-2, AC-10, AC-11, EC-7, EC-9
+- [x] T9 [P]  Inhalt der Einladung  · files: src/features/invitations/invitation-mail.rules.ts, src/features/invitations/invitation-mail.rules.test.ts  · → AC-2, AC-10, AC-11, EC-7, EC-9
   - Pure. Baut aus (Trägername, Linkziel) den Betreff, die Textfassung und die HTML-Fassung, Absätze und Reihenfolge wie in design.md → Inhalt der Einladung. Der Datenschutzhinweis aus AC-10 steht wörtlich darin, mit dem Trägernamen an allen drei Stellen.
   - Betreff genau „Ihre Lizenz für den Kurs Geprüfter Technischer Betriebswirt (IHK)“, ohne Trägernamen. Die Empfängeradresse steht nirgends in der Mail.
   - Trägername: In beiden Fassungen steht nach jedem „.“, „@“, „:“ und „/“ ein U+200B. In der HTML-Fassung wird er zusätzlich maskiert (`&`, `<`, `>`, `"`, `'`), steht nie in einem Attribut und darf an jeder Stelle umbrechen.
@@ -74,7 +74,7 @@
     - Trägernamen mit `<script>`, mit `https://evil.example`, mit `a@b.de` und mit 100 Zeichen erscheinen als reiner Text ohne Link (EC-7).
     - Kein `<img`, kein `<link`, kein `src=`. Das einzige `href` ist das Linkziel.
     - `javascript:`, ein relativer Pfad, ein Linkziel mit Zugangsdaten und eines mit 2.049 Zeichen sind ungültig.
-- [ ] T10 [P]  Mailjet-Anbindung  · files: src/features/invitations/mailjet.integration.ts, src/features/invitations/mailjet.integration.test.ts  · → AC-2, AC-3, AC-11, EC-8, EC-9
+- [x] T10 [P]  Mailjet-Anbindung  · files: src/features/invitations/mailjet.integration.ts, src/features/invitations/mailjet.integration.test.ts  · → AC-2, AC-3, AC-11, EC-8, EC-9
   - `server-only`. `sendMail({ Empfänger, Betreff, Text, HTML })` → „angenommen“ oder „fehlgeschlagen“. Liest `MAILJET_API_KEY`, `MAILJET_SECRET_KEY` und `INVITATION_SENDER_EMAIL` erst beim Aufruf. Fehlt einer oder ist er leer → „fehlgeschlagen“ ohne Anfrage.
   - POST an `https://api.mailjet.com/v3.1/send`, HTTP Basic mit Schlüssel und Secret, genau eine Nachricht:
     - Absender: die Adresse `INVITATION_SENDER_EMAIL`, Name fest „Lizenzzentrale“
@@ -85,7 +85,7 @@
   - Abbruch nach 10 Sekunden per `AbortSignal`, kein Wiederholen. „Angenommen“ heißt HTTP 200 **und** die eine Nachricht hat den Status `success`. Alles andere ist „fehlgeschlagen“: 401, 403 mit `send-0008`, Status `error`, Abbruch, Netzwerkfehler, unlesbare Antwort.
   - Bei „fehlgeschlagen“ eine Zeile auf der Server-Konsole: HTTP-Status bzw. „Zeitüberschreitung“ oder „nicht eingestellt“, dazu die `ErrorCode`s. Nie Schlüssel, Adresse, `ErrorMessage` oder Rumpf.
   - Die Tests bilden `fetch` nach. Sie prüfen den Rumpf als exaktes Objekt und den Anmeldekopf, mit Fake-Timern die Zeitgrenze, und jeden Fehlerfall. Die Konsolenzeile enthält weder Adresse noch Schlüssel noch `ErrorMessage`. Eine Adresse mit `+` geht unverändert hinaus.
-- [ ] T11 [P]  Datenzugriff auf den Versand  · files: src/features/invitations/invitations.data.ts, src/features/invitations/invitations.data.test.ts  · → AC-7, AC-8, AC-9, EC-1, EC-2, EC-5
+- [x] T11 [P]  Datenzugriff auf den Versand  · files: src/features/invitations/invitations.data.ts, src/features/invitations/invitations.data.test.ts  · → AC-7, AC-8, AC-9, EC-1, EC-2, EC-5
   - `server-only`.
   - `isLicenseVisible(Träger-ID, Lizenz-ID)` mit dem Server-Client `src/lib/supabase/server.ts` (Sitzung, RLS): eine Abfrage nach ID **und** Träger-ID, nur die ID. Ergebnis: sichtbar, nicht sichtbar oder Fehler.
   - `beginInvitation(Träger-ID, Lizenz-ID)` und `finishInvitation(Versand-ID, angenommen)` rufen die beiden Funktionen aus T7 mit dem Admin-Client `src/lib/supabase/admin.ts` auf. Die Antworten werden in feste Ergebnisse übersetzt: erlaubt mit Versand-ID und Adresse, nicht gefunden, läuft schon, Grenze der Lizenz mit Zeitpunkt, Grenze des Trägers mit Zeitpunkt. Ein Fehler, keine Antwort oder eine unbekannte Antwort ergibt „Fehler“.
@@ -102,7 +102,7 @@
 <!-- Braucht die Bausteine aus Stufe 2. Alle Dateisätze sind disjunkt, deshalb sind alle Aufgaben [P].
      T15 ändert `AssignResult`, die Action dazu folgt in T17 (Stufe 4), weil sie `deliverInvitation` aus T12 braucht. Zwischen den beiden Stufen meldet `npm run typecheck` deshalb das fehlende Feld in `licenses.actions.ts`. `npm test` an der Schranke bleibt grün, und nach Stufe 4 passt der Typ wieder. -->
 
-- [ ] T12 [P]  Versand einer Einladung  · files: src/features/invitations/invitations.delivery.ts, src/features/invitations/invitations.delivery.test.ts  · → AC-1, AC-3, AC-5, AC-7, AC-8, EC-1, EC-3, EC-4, EC-5, EC-8, EC-9
+- [x] T12 [P]  Versand einer Einladung  · files: src/features/invitations/invitations.delivery.ts, src/features/invitations/invitations.delivery.test.ts  · → AC-1, AC-3, AC-5, AC-7, AC-8, EC-1, EC-3, EC-4, EC-5, EC-8, EC-9
   - `server-only`, **keine** `'use server'`-Datei: Jeder Export dort wäre vom Browser aus aufrufbar und würde der mitgeschickten Träger-ID trauen.
   - `deliverInvitation(Träger { ID, Name }, Lizenz-ID)` → Versandausgang aus T8. **Wirft nie**, jeder Fehler wird zu „fehlgeschlagen“.
   - Ablauf wie in design.md → Versand einer Einladung:
@@ -113,15 +113,15 @@
     5. Abschließen mit `finishInvitation`.
     6. Ausgang „versendet“, wenn Mailjet angenommen hat, sonst „fehlgeschlagen“, gleich ob der Abschluss geklappt hat.
   - Die Tests bilden Datenmodul und Mailjet-Anbindung nach, das Mail-Modul ist echt. Sie decken jeden Schritt oben ab. Dazu: Eine Ausnahme aus Mailjet oder dem Mail-Modul ergibt „fehlgeschlagen“, und die Adresse erscheint in keiner Konsolenausgabe.
-- [ ] T13 [P]  Lizenzliste liest den Versandstand mit  · files: src/features/licenses/licenses.data.ts, src/features/licenses/licenses.data.test.ts  · → AC-4, AC-6, AC-9
+- [x] T13 [P]  Lizenzliste liest den Versandstand mit  · files: src/features/licenses/licenses.data.ts, src/features/licenses/licenses.data.test.ts  · → AC-4, AC-6, AC-9
   - `listLicenses` liest `license_invitations` mit `status` und `last_attempt_at` eingebettet in derselben Anfrage, mit der Sitzung des Verwalters. Jede Lizenz bekommt „Versandstand oder keiner“ (Typ aus T8). Das Einbetten liefert ein Objekt oder nichts (T7 bestätigt das am gehosteten Projekt).
   - Filter, Sortierung, Ladefehler, `insertLicense` und `deleteLicense` bleiben unverändert. Die bestehenden Tests bleiben grün und werden um „mit“ und „ohne Versandstand“ ergänzt.
   - `license-list.tsx` hat einen eigenen Typ für die Lizenz. Das zusätzliche Feld ändert dort also nichts, bis T19.
-- [ ] T14 [P]  Versandstand als Badge  · files: src/features/invitations/components/invitation-status.tsx, src/features/invitations/components/invitation-status.test.tsx  · → AC-4, AC-6, EC-3
+- [x] T14 [P]  Versandstand als Badge  · files: src/features/invitations/components/invitation-status.tsx, src/features/invitations/components/invitation-status.test.tsx  · → AC-4, AC-6, EC-3
   - Bekommt den Anzeigezustand aus T8 als Wert. shadcn `badge` mit Symbol und Text, Farben und Symbole nach der Tabelle in design.md → Versandstand in der Liste (`Mail`, `Clock`, `CircleAlert`, `CircleCheck`). Die Symbole sind `aria-hidden`, das Wort trägt den Zustand.
   - Bei „Versendet am“ steht das Datum in einem `time`-Element mit dem vollen Zeitpunkt.
   - Tests: die vier Zustände mit genauem Text, das `time`-Element, Symbole für Screenreader ausgeblendet.
-- [ ] T15 [P]  Rückmeldung „Lizenz zugewiesen“ mit Zusatz  · files: src/features/licenses/licenses.rules.ts, src/features/licenses/licenses.rules.test.ts, src/features/licenses/components/assign-license-dialog.tsx, src/features/licenses/components/assign-license-dialog.test.tsx  · → AC-1, AC-3, AC-8, EC-9
+- [x] T15 [P]  Rückmeldung „Lizenz zugewiesen“ mit Zusatz  · files: src/features/licenses/licenses.rules.ts, src/features/licenses/licenses.rules.test.ts, src/features/licenses/components/assign-license-dialog.tsx, src/features/licenses/components/assign-license-dialog.test.tsx  · → AC-1, AC-3, AC-8, EC-9
   - `licenses.rules.ts`:
     - `AssignResult` „zugewiesen“ trägt den Versandausgang aus T8.
     - `Feedback` bekommt eine optionale Zusatzzeile und die neue Art „Warnung“, ein Toast, der den Dialog schließt.
@@ -134,7 +134,7 @@
 
 <!-- Braucht den Versand aus T12 und die Regeln aus T15. Die beiden Dateisätze sind disjunkt, deshalb beide [P]. -->
 
-- [ ] T16 [P]  Server Action „Senden“  · files: src/features/invitations/invitations.actions.ts, src/features/invitations/invitations.actions.test.ts  · → AC-5, AC-6, AC-7, AC-8, AC-9, EC-1, EC-5, EC-11, EC-12
+- [x] T16 [P]  Server Action „Senden“  · files: src/features/invitations/invitations.actions.ts, src/features/invitations/invitations.actions.test.ts  · → AC-5, AC-6, AC-7, AC-8, AC-9, EC-1, EC-5, EC-11, EC-12
   - `'use server'`. `sendInvitation(Eingabe)` wie in design.md → Senden und erneut senden:
     1. Wächter `requireTrainingProvider()` aus `src/features/account/session.data.ts`. Abgemeldet → Weiterleitung auf `/login?reason=session`. Nicht zugeordnet → „nicht zugeordnet“, ohne etwas zu lesen oder zu senden (EC-11).
     2. Schema aus T8. Ungültig → „Fehler“.
@@ -142,7 +142,7 @@
     4. `deliverInvitation` mit ID und Name des Trägers aus dem Wächter, dann `refresh()`, dann das Ergebnis nach dem Ausgang.
   - Das Kontingent spielt keine Rolle (EC-12).
   - Die Tests bilden Wächter, Datenmodul, Versand und `refresh` nach und decken jeden Schritt oben ab. Dazu: Eine mitgeschickte Adresse und ein mitgeschickter Träger werden ignoriert (AC-9). Eine Lizenz von B wird nie versendet. Mit Kontingent 0 oder überschrittenem Kontingent wird trotzdem versendet.
-- [ ] T17 [P]  Zuweisen versendet die Einladung  · files: src/features/licenses/licenses.actions.ts, src/features/licenses/licenses.actions.test.ts  · → AC-1, AC-3, AC-8, EC-6, EC-9
+- [x] T17 [P]  Zuweisen versendet die Einladung  · files: src/features/licenses/licenses.actions.ts, src/features/licenses/licenses.actions.test.ts  · → AC-1, AC-3, AC-8, EC-6, EC-9
   - `assignLicense`: Nach „angelegt“ zuerst `deliverInvitation` mit ID und Name des Trägers aus dem Wächter und der ID der neuen Lizenz, dann `refresh()`, dann „zugewiesen“ mit dem Versandausgang. Nach „angelegt“ ist das Ergebnis immer „zugewiesen“, nie „Fehler“.
   - Alle anderen Ergebnisse bleiben wie in PROJ-2, ohne Versand. `revokeLicense` bleibt unverändert.
   - Die Tests bilden den Versand nach. Geprüft wird: Jeder Ausgang geht unverändert ins Ergebnis. Der Versand läuft vor `refresh()`. Bei „schon vergeben“, „ausgeschöpft“, „Fehler“ und „nicht zugeordnet“ wird nicht versendet. Die übrigen Tests von PROJ-2 bleiben grün.
@@ -151,7 +151,7 @@
 
 <!-- Braucht die Action aus T16. Nur eine Aufgabe. -->
 
-- [ ] T18  Knopf „Erneut senden“ / „Einladung senden“  · files: src/features/invitations/components/send-invitation-button.tsx, src/features/invitations/components/send-invitation-button.test.tsx  · → AC-4, AC-5, AC-6, AC-9, EC-1, EC-10, EC-11
+- [x] T18  Knopf „Erneut senden“ / „Einladung senden“  · files: src/features/invitations/components/send-invitation-button.tsx, src/features/invitations/components/send-invitation-button.test.tsx  · → AC-4, AC-5, AC-6, AC-9, EC-1, EC-10, EC-11
   - Client. Werte: Lizenz-ID, Adresse (nur für den Screenreader-Text), Art (senden / erneut senden), Darstellung (klein / volle Breite).
   - Variante `outline`. Klein ist 36 px hoch gezeichnet, mit einer Tippfläche von 44 × 44 px. Volle Breite ist 44 px hoch. Sichtbarer Text und Screenreader-Text kommen aus T8.
   - Der Klick ruft `sendInvitation` nur mit der Lizenz-ID auf, ohne Formular, das der Browser nativ absenden könnte.
@@ -164,7 +164,7 @@
 <!-- Braucht Badge (T14), Knopf (T18) und die Daten aus T13. T19 und T20 teilen sich keine Datei, deshalb beide [P].
      Die [user go-live]-Aufgaben macht /deploy. Sie blockieren weder /qa noch „Approved“. -->
 
-- [ ] T19 [P]  Spalte „Einladung“ in der Lizenzliste  · files: src/features/licenses/components/license-list.tsx, src/features/licenses/components/license-list.test.tsx, src/app/(app)/licenses/page.tsx  · → AC-1, AC-3, AC-4, AC-5, AC-6, EC-3
+- [x] T19 [P]  Spalte „Einladung“ in der Lizenzliste  · files: src/features/licenses/components/license-list.tsx, src/features/licenses/components/license-list.test.tsx, src/app/(app)/licenses/page.tsx  · → AC-1, AC-3, AC-4, AC-5, AC-6, EC-3
   - `license-list.tsx` bekommt `now` von der Seite und berechnet pro Lizenz den Anzeigezustand mit T8. Sie importiert nie `*.data.ts`, `*.delivery.ts` oder `*.integration.ts`.
   - Tabelle: Spalte „Einladung“ vor „Aktion“, mit Badge aus T14 und Knopf aus T18 in der kleinen Darstellung. Bei „Wird versendet“ steht kein Knopf.
   - Karte: „Einladung:“ mit Badge, darunter der Knopf in voller Breite, darunter „Entziehen“ wie bisher.
@@ -177,7 +177,7 @@
     - Entziehen.
     - Smartphone-Breite.
     - **Nie** „Einladung senden“ bei den `example.com`-Lizenzen aus PROJ-2 klicken.
-- [ ] T20 [P]  README: E-Mail-Dienst einrichten  · files: README.md  · → AC-1, AC-2, AC-11, EC-9 (PRD → Erfolgskriterien: nachvollziehbar für den Prüfer)
+- [x] T20 [P]  README: E-Mail-Dienst einrichten  · files: README.md  · → AC-1, AC-2, AC-11, EC-9 (PRD → Erfolgskriterien: nachvollziehbar für den Prüfer)
   - Neuer Abschnitt „E-Mail-Dienst einrichten (Mailjet)“:
     - Konto im Tarif Free, ohne Kreditkarte.
     - Absenderadresse bestätigen, und welche Adressen nicht gehen.

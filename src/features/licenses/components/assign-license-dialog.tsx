@@ -3,6 +3,8 @@
 // der Ergebnisse). The browser checks with the shared schema; the server checks everything again.
 // What the administrator can fix or retry stays in the dialog with the input; a result closes it
 // with a toast. While sending, nothing closes the dialog before the answer is in (EC-2).
+// "Lizenz zugewiesen" is a success or, when the invitation did not go out, a warning toast; both
+// carry a second line about the invitation (PROJ-3 design.md → "Darstellung der Ergebnisse").
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -66,7 +68,10 @@ export function AssignLicenseDialog({
   function show(feedback: Feedback) {
     switch (feedback.kind) {
       case 'success':
-        toast.success(feedback.message)
+        toast.success(feedback.message, { description: feedback.description })
+        return setOpen(false)
+      case 'warning':
+        toast.warning(feedback.message, { description: feedback.description })
         return setOpen(false)
       case 'error_toast':
         toast.error(feedback.message)

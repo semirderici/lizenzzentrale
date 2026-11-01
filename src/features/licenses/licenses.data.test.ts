@@ -66,6 +66,14 @@ async function assignAsAdmin(trainingProviderId: string, email: string, assigned
   return data.id as string
 }
 
+/** A state of the last invitation, written as only the server's database functions would (PROJ-3). */
+async function addInvitation(trainingProviderId: string, licenseId: string, status: string, lastAttemptAt: string) {
+  const { error } = await createAdminTestClient()
+    .from('license_invitations')
+    .insert({ license_id: licenseId, training_provider_id: trainingProviderId, status, last_attempt_at: lastAttemptAt })
+  if (error) throw error
+}
+
 async function licenseExists(licenseId: string) {
   const { data, error } = await createAdminTestClient().from('licenses').select('id').eq('id', licenseId)
   if (error) throw error
@@ -132,8 +140,34 @@ describe('listLicenses', { timeout: TIMEOUT }, () => {
     const licenses = result.status === 'ok' ? result.licenses : []
     const [first, second] = tiedIds[0] > tiedIds[1] ? [0, 1] : [1, 0]
     expect(licenses.map((license) => license.id)).toEqual([newestId, tiedIds[first], tiedIds[second], oldestId])
-    expect(licenses[0]).toEqual({ id: newestId, email: newest.email, assignedAt: expect.any(String) })
+    expect(licenses[0]).toEqual({ id: newestId, email: newest.email, assignedAt: expect.any(String), invitation: null })
     expect(new Date(licenses[0].assignedAt).toISOString()).toBe(newest.at)
+  })
+
+  it('liest den Versandstand jeder Lizenz in derselben Abfrage mit, ohne Einladung null (PROJ-3 AC-4, AC-6)', async () => {
+    const at = { sent: '2026-10-20T09:15:00.000Z', failed: '2026-10-21T10:30:00.000Z', sending: '2026-10-22T11:45:00.000Z' }
+    await setQuota(a.trainingProviderId, 50)
+    const ids = {
+      sent: await assignAsAdmin(a.trainingProviderId, participant('versendet')),
+      failed: await assignAsAdmin(a.trainingProviderId, participant('fehlgeschlagen')),
+      sending: await assignAsAdmin(a.trainingProviderId, participant('versendet-gerade')),
+      none: await assignAsAdmin(a.trainingProviderId, participant('ohne')),
+    }
+    for (const status of ['sent', 'failed', 'sending'] as const) {
+      await addInvitation(a.trainingProviderId, ids[status], status, at[status])
+    }
+    server.client = a.client
+
+    const result = await listLicenses(a.trainingProviderId)
+
+    expect(result.status).toBe('ok')
+    const byId = new Map((result.status === 'ok' ? result.licenses : []).map((license) => [license.id, license]))
+    for (const status of ['sent', 'failed', 'sending'] as const) {
+      const invitation = byId.get(ids[status])?.invitation
+      expect(invitation).toEqual({ status, lastAttemptAt: expect.any(String) })
+      expect(new Date(invitation!.lastAttemptAt).toISOString()).toBe(at[status])
+    }
+    expect(byId.get(ids.none)?.invitation).toBeNull()
   })
 
   it('liefert für einen fremden Träger keine Zeile, weil RLS sie verbirgt (AC-10)', async () => {

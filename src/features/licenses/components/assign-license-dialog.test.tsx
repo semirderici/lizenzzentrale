@@ -6,7 +6,7 @@ import { AssignLicenseDialog } from './assign-license-dialog'
 // Only the Server Action and the toasts are replaced; schema, messages and the shared form parts
 // are the real ones.
 vi.mock('../licenses.actions', () => ({ assignLicense: vi.fn() }))
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn() } }))
 
 const TEXT = {
   action: 'Lizenz zuweisen',
@@ -20,6 +20,12 @@ const TEXT = {
   unassigned: 'Ihr Konto ist keinem Bildungsträger zugeordnet. Bitte wenden Sie sich an den Anbieter.',
   failed: 'Das hat nicht geklappt. Bitte versuchen Sie es erneut.',
   noConnection: 'Keine Verbindung. Bitte versuchen Sie es erneut.',
+  // The second line of "Lizenz zugewiesen" (PROJ-3)
+  invitationSent: 'Die Einladung ist versendet.',
+  invitationFailed:
+    'Die Einladung konnte nicht versendet werden. Sie können sie in der Liste erneut senden.',
+  providerLimit:
+    'Die Einladung wurde nicht versendet, weil Ihr Bildungsträger in den letzten 24 Stunden bereits 30 Einladungen versendet hat. Sie können sie ab 28.10.2026, 14:12 Uhr senden.',
 }
 
 const trigger = () => screen.getByRole('button', { name: TEXT.action })
@@ -90,12 +96,37 @@ describe('AssignLicenseDialog', () => {
   })
 
   it('schickt die normalisierte Adresse, meldet „Lizenz zugewiesen“ und schließt (AC-4)', async () => {
-    vi.mocked(assignLicense).mockResolvedValue({ status: 'assigned' })
+    vi.mocked(assignLicense).mockResolvedValue({ status: 'assigned', invitation: { status: 'sent' } })
     openDialog()
     submitWith(' Teilnehmer@Example.COM ')
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(TEXT.assigned))
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(TEXT.assigned, { description: TEXT.invitationSent })
+    )
     expect(assignLicense).toHaveBeenCalledWith({ email: 'teilnehmer@example.com' })
     await waitFor(() => expect(dialog()).toBeNull())
+  })
+
+  describe('„Lizenz zugewiesen“ mit dem Stand der Einladung (PROJ-3)', () => {
+    it.each([
+      ['versendet: Erfolgs-Toast (AC-1)', { status: 'sent' } as const, 'success' as const, TEXT.invitationSent],
+      ['fehlgeschlagen: Warn-Toast (AC-3, EC-9)', { status: 'failed' } as const, 'warning' as const, TEXT.invitationFailed],
+      [
+        'Grenze des Trägers: Warn-Toast mit Begründung und Zeitpunkt (AC-8)',
+        { status: 'provider_limit', availableFrom: '2026-10-28T13:11:56.123Z' } as const,
+        'warning' as const,
+        TEXT.providerLimit,
+      ],
+    ])('%s, Titel „Lizenz zugewiesen“, der Zusatz als zweite Zeile, der Dialog schließt', async (_case, invitation, kind, description) => {
+      vi.mocked(assignLicense).mockResolvedValue({ status: 'assigned', invitation })
+      openDialog()
+      submitWith('teilnehmer@example.com')
+      await waitFor(() => expect(toast[kind]).toHaveBeenCalledWith(TEXT.assigned, { description }))
+      expect(toast[kind]).toHaveBeenCalledTimes(1)
+      expect(toast[kind === 'success' ? 'warning' : 'success']).not.toHaveBeenCalled()
+      expect(toast.error).not.toHaveBeenCalled()
+      await waitFor(() => expect(dialog()).toBeNull())
+      expect(screen.queryByRole('alert')).toBeNull()
+    })
   })
 
   it('schon vergeben: Meldung am Feld, Dialog und Eingabe bleiben (AC-6)', async () => {
