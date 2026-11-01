@@ -1,301 +1,178 @@
 # QA-Testergebnisse: PROJ-3 Einladungs-E-Mail
 
-**Getestet:** 2026-11-01, Stand `77f1544` auf `feat/PROJ-3-invitation-email`
-**App-URL:** http://localhost:3000 (`probe.baseUrl`), gestartet von der `/qa`-Sitzung. Der Server lief nacheinander in vier Fassungen:
-1. **Mailversand aus:** `MAILJET_API_KEY` und `MAILJET_SECRET_KEY` in der Shell leer gesetzt. `@next/env` übernimmt Werte aus `.env.local` nur für Variablen, die vorher `undefined` sind (`node_modules/@next/env/dist/index.js`). Gegen diese Fassung liefen die drei Prüfer, damit keine Mail an `example.com` hinausging.
-2. **Ungültiges Linkziel:** zusätzlich `LEARNING_PLATFORM_URL=javascript:alert(1)` (EC-9).
-3. **Ungültiger Schlüssel:** `MAILJET_API_KEY=qa-invalid-key`, sonst die echten Werte (EC-9).
-4. **Echte Werte** aus `.env.local`, ohne Überschreibung: echte Mails an eine Adresse des Nutzers.
+**Getestet:** 2026-11-01, zweiter `/qa`-Lauf: Nachprüfung nach dem Fix von BUG-2. Stand `e8ac80a` auf `feat/PROJ-3-invitation-email`. Der erste Lauf war am selben Tag (Bericht in Commit `024a0a2`).
+**App-URL:** http://localhost:3001, einmal von der `/qa`-Sitzung gestartet:
+- Befehl: `MAILJET_API_KEY= MAILJET_SECRET_KEY= npx next dev -p 3001`. Die Mailjet-Schlüssel waren also leer, und es ging keine Mail hinaus, auch nicht an `example.com`.
+- Port 3000 aus `probe.baseUrl` war von einem anderen Projekt belegt (`lsof -iTCP:3000` → `next-server` aus `…/Developer/speechwerk`). Dieser Server wurde nicht angefasst.
 
-**Tester:** QA Engineer (KI). Drei unabhängige `qa-engineer`-Prüfer ohne Build-Kontext, parallel und mit getrennten Bereichen:
-- Abnahme (Step 2)
-- Security (Step 3)
-- Regression (Step 4 und 5)
+**Tester:** QA Engineer (KI). Ein unabhängiger `qa-engineer`-Prüfer ohne Build-Kontext, mit allen drei Bereichen nacheinander: Abnahme (Step 2) → Security (Step 3) → Regression (Step 4 und 5). Zusammengeführt hat die `/qa`-Sitzung. Sie hat außerdem den Sweep, den neuen Befund BUG-5 und den Endstand der Datenbank gegengeprüft und die Rotprobe gemacht (Step 6).
 
-Zusammengeführt hat die `/qa`-Sitzung. Sie hat außerdem die Server-Fassungen 2 bis 4 geprüft, die echte Mail mit dem Nutzer abgenommen und die Unit-Tests ergänzt (Step 6).
-
-**Umfang:** voll. Das ist der erste `/qa`-Lauf von PROJ-3, einen früheren Bericht gibt es nicht.
+**Umfang:** Nachprüfung in der Breite der Diff, `git diff --stat 024a0a2..HEAD` (`024a0a2` hat den vorigen Bericht geschrieben):
+- **Produktionscode:** nur `src/features/invitations/invitation-mail.rules.ts` (+4/−2: Helfer `atSentenceEnd`, genutzt von `questionsText` und `privacyNote`).
+- **Außerdem geändert:** `src/features/invitations/invitation-mail.rules.test.ts` (+27, nur Hinzufügungen) und `design.md` (Abweichung 10).
+- **Unverändert ist alles andere.** Beleg: `git diff --stat 024a0a2..HEAD -- . ':(exclude)<die drei Dateien>'` ist leer. Auch `supabase/` ist unverändert.
+- **Ein Prüfer statt drei:** Geändert ist eine einzige Produktionsdatei. Sie ist reine Textlogik ohne Daten-, Rechte- oder Auth-Code und gehört nicht zur App-Shell. Kein Feature ist deployt.
 
 > Legende:
 > - `[x]` in diesem Lauf geprüft (mit Beleg)
 > - `[ ] BUG` als fehlerhaft geprüft
 > - `[!] NOT VERIFIED` in diesem Lauf nicht prüfbar (mit Grund)
+> - `[=]` übernommen aus dem Lauf vom 2026-11-01 (Commit `024a0a2`). In diesem Lauf nicht erneut geprüft, weil die Diff den Code dafür nicht berührt.
 
 **So wurde geprüft:**
-- **Server Actions** per HTTP direkt aufgerufen, am Formular vorbei: `POST` mit dem Kopf `Next-Action`. Die IDs stammen aus dem Client-Bundle bzw. `.next/dev/server/server-reference-manifest.json`.
-- **Seite:** Das server-gerenderte HTML von `/licenses` wurde ausgewertet. Antworten der Actions enthalten den neu gerenderten Baum.
-- **Datenbank-Schnittstelle (PostgREST)** mit dem Zugriffstoken eines Verwalters und mit dem öffentlichen Schlüssel allein.
-- **Datenbank** direkt per `env -u SUPABASE_ACCESS_TOKEN supabase db query --linked`. Rechte-Tests liefen mit `set_config('role', …)` und JWT-Claims, jeweils zurückgerollt. Die Grenztests legten Versendungen per SQL an und räumten sie danach wieder weg.
-- **Mailtexte:** `buildInvitationMail` per `node --experimental-strip-types` gerendert, aus einer Kopie im Scratchpad.
-- **Echte Mail (aufgezeichneter Test durch den Nutzer, 2026-11-01, Gmail):**
-  - Zwei Einladungen gingen an eine eigene Gmail-Adresse des Nutzers mit `+`-Zusatz: Zuweisen und einmal „Erneut senden“, über den Server mit den echten Werten.
-  - Der Nutzer hat Kopf, Inhalt und Quelltext der angekommenen Mails geprüft (zwölf Punkte, siehe AC-1, AC-2, AC-10, AC-11, EC-8).
-  - Die Adresse steht in keiner Datei und in diesem Bericht nicht.
-- **Testkonten:** Präfixe `qa5-acc-`, `qa5-sec-`, `qa5-reg-` (die Prüfer) und `qa5-own-` (die `/qa`-Sitzung), alle mit eigenem Träger. Teilnehmer-Adressen stammten aus `example.com`, außer der einen echten Adresse in Fassung 4.
+- **Server Actions** per HTTP direkt aufgerufen, am Formular vorbei: `POST /licenses` mit dem Kopf `Next-Action`.
+- **Mailtexte vorher und nachher:** `buildInvitationMail` und `platformUrlFrom` per `node --experimental-strip-types` gerendert, aus Kopien von `git show 024a0a2:…/invitation-mail.rules.ts` und von HEAD im Scratchpad.
+- **Datenbank** direkt per `env -u SUPABASE_ACCESS_TOKEN supabase db query --linked`.
+- **Testkonto:** `qa6-rev@example.com` mit dem Träger „QA6 Bildungswerk e.V.“, angelegt über die Action `register`. Teilnehmer-Adressen nur aus `example.com`.
+- **Keine echte Mail in diesem Lauf.** Die Zustellung samt Abnahme durch den Nutzer stammt aus dem ersten Lauf (Gmail, 2026-11-01). Der Versandweg ist seitdem unverändert: `mailjet.integration.ts` und `invitations.delivery.ts` sind nicht in der Diff.
 - **Aufräumen**, Endstand per SQL von der `/qa`-Sitzung, gleich dem Ausgangsstand vor dem Lauf:
   - 4 Konten, 4 Träger, 4 Mitgliedschaften
   - 0 Lizenzen, 0 Versandstände, 0 Versendungen
-  - 0 Konten `qa5-%`, 0 Träger `QA5%`
-  - 0 Login-Versuche, Sperren und Registrierungsversuche außer denen der Suite (siehe O-3)
-  - Ein Volltext-Scan aller 8 Tabellen in `public` und `private` nach der echten Adresse (`t::text ilike`) ergab 0 Treffer.
-  - Cookie- und Sitzungsdateien im Scratchpad sind gelöscht, der Server ist beendet.
+  - 0 Konten `qa6-%`, 0 Träger `QA6%`
+  - erzeugt: 1 Registrierungsversuch, 0 Login-Versuche, 0 Sperren (der 24-Stunden-Job löscht sie)
+  - `git status` sauber, Cookie- und Antwortdateien im Scratchpad gelöscht, der Server ist beendet.
 
-**Suite-Lauf** (einmal vor den Prüfern, `npm test`): 37 Dateien, 855 Tests bestanden, 0 fehlgeschlagen, exit 0. Alle drei Prüfer haben diesen Lauf zitiert, keiner hat die Suite erneut gestartet.
+**Suite-Lauf** (einmal vor dem Prüfer, `npm test`): 37 Dateien, 864 Tests bestanden, 0 fehlgeschlagen, exit 0. Der Prüfer hat diesen Lauf zitiert und die Suite nicht erneut gestartet.
+- Die Zahl ist erklärt: 855 im ersten Lauf + 7 Unit-Tests von `/qa` + 2 neue Tests aus dem Fix = 864.
 
 **Weitere Läufe:**
-- **Produktions-Build:** `npm run build` → exit 0, Build `s4m-NiRwhtJKLBd1S3Iyt`.
-- **Migrationen:** `supabase migration list --linked` zeigt lokal und remote dieselben 6 Versionen bis `20261026150000` (PROJ-3).
-  - Ein Round-Trip (`db reset`) ist [!] NOT VERIFIED: Die Strategie ist `single`, ein Reset des gehosteten Projekts würde alle Daten löschen.
-  - Das Live-Schema wurde stattdessen geprüft (Spalten, Regeln, Rechte, Funktionen, Cron-Job; siehe AC-9 und AC-12).
-- **Nach der Teständerung von `/qa`:** `npx eslint src/features/invitations/invitation-mail.rules.test.ts` → exit 0, `npx tsc --noEmit` → exit 0.
+- **Produktions-Build:** `npm run build` → exit 0, Build `V075hyVj-9XjufeMUxdlJ`. Er lief, weil die Diff App-Code berührt.
+- **Migrationen:** übersprungen, unverändert seit 2026-11-01 (`git diff --stat 024a0a2..HEAD -- supabase/` ist leer).
+- **Einzeldatei:** `npx vitest run src/features/invitations/invitation-mail.rules.test.ts` → 46 bestanden (vorher 44, +2 aus dem Fix).
 
 ## Akzeptanzkriterien
 
 #### AC-1: Zuweisen löst genau eine Einladung aus, Toast mit Zusatz, „Versendet am“
-- [x] **Echte Zuweisung** (Fassung 4) → `{"status":"assigned","invitation":{"status":"sent"}}` nach 2,7 s.
-  - Danach steht in `license_invitations` `sent`, dazu genau eine angenommene Versendung.
-  - Nach „Erneut senden“ sind es zwei; der Nutzer hat genau zwei angekommene Mails bestätigt.
-- [x] **Liste:** Das HTML von `/licenses` zeigt in Tabelle und Karte „Versendet am“ mit `<time dateTime="2026-11-01T09:43:21.183293+00:00">01.11.2026</time>` und „Erneut senden“.
-- [x] **Zeitzone:** Ein per SQL gesetzter Stand `2026-10-31T23:30Z` erscheint als „01.11.2026“ (Abnahme-Prüfer).
-- [x] **Toast-Zuordnung im Code:** „Lizenz zugewiesen“ mit „Die Einladung ist versendet.“ als `toast.success` mit `description` (`licenses.rules.ts:131-134`, `invitations.rules.ts:208-209`, `assign-license-dialog.tsx:70-72`).
-- [x] **Genau ein Versuch:** `deliverInvitation` wird einmal aufgerufen (`licenses.actions.ts:30-37`), Mailjet ohne Wiederholung (`mailjet.integration.ts:52-68`).
-- [!] NOT VERIFIED: der sichtbare Toast. Dafür braucht es einen Browser; belegt sind die Komponententests im Suite-Lauf.
+- [=] Echte Zuweisung mit angenommener Mail, „Versendet am“ in Tabelle und Karte, Zeitzone, Toast-Zuordnung, genau ein Versuch. Unverändert seit 2026-11-01 (`licenses.actions.ts`, `invitations.delivery.ts`, `mailjet.integration.ts` und die Komponenten sind nicht in der Diff).
+- [!] NOT VERIFIED: der sichtbare Toast. Dafür braucht es einen Browser.
 
 #### AC-2: Absender, Betreff, Inhalt der Einladung
-- [x] **Echte Mail, vom Nutzer bestätigt:**
-  - Absender „Lizenzzentrale“, Betreff exakt „Ihre Lizenz für den Kurs Geprüfter Technischer Betriebswirt (IHK)“
-  - keine Zeile `Reply-To:` im Original
-  - Trägername als reiner Text, kein Link
-  - Knopf „Zur Lernplattform“ mit dem Hinweis, sich mit genau dieser Adresse anzumelden
-- [x] **Code:** Absendername fest (`mailjet.integration.ts:7`), kein `ReplyTo`, `CustomID` oder `EventPayload` (`mailjet.integration.ts:29-41`), Betreff `invitation-mail.rules.ts:9`. Die Empfängeradresse steht nicht im Text (gerenderte Mail, Abnahme-Prüfer).
-- [ ] BUG-2 (Low): Bei einem Trägernamen mit Schlusspunkt steht „Bei Fragen wenden Sie sich an QA5-OWN Bildungswerk e.V..“ mit zwei Punkten. Das hat der Nutzer in der echten Mail bestätigt.
+- [x] **Satzende ohne doppelten Punkt** (Render HEAD): „Bei Fragen wenden Sie sich an <Name>.“ mit genau einem Schlusspunkt.
+  - „Bildungswerk e.V.“ → „… an Bildungswerk e.V.“, „Bildungswerk e.V. Nord“ → „… an Bildungswerk e.V. Nord.“, „Institut Nord“ → „… an Institut Nord.“ (Prüfer und `/qa`-Sitzung unabhängig).
+  - Umsetzung: `invitation-mail.rules.ts:47,50`.
+- [x] **Sonst unverändert:** Für 6 Namen ohne Schlusspunkt sind Betreff, Text- und HTML-Fassung bei HEAD und bei `024a0a2` gleich (Prüfer, Vergleichsskript 6/6). Der Betreff ist weiter `INVITATION_SUBJECT` ohne Trägernamen.
+- [x] **Zur Laufzeit:** Mit dem Träger „QA6 Bildungswerk e.V.“ endet `assignLicense` mit `{"status":"assigned","invitation":{"status":"failed"}}`.
+  - Im Server-Log steht nur „Mailjet: Einladung nicht versendet (nicht eingestellt)“, kein „Einladung: unerwarteter Fehler beim Versand“.
+  - `buildInvitationMail` lief für diesen Namen also fehlerfrei bis zum Mailjet-Schritt.
+- [=] Absender „Lizenzzentrale“, kein `Reply-To`, Trägername als reiner Text, Knopf „Zur Lernplattform“ mit dem Hinweis zur Adresse, in der echten Mail vom Nutzer bestätigt. Unverändert seit 2026-11-01 (`mailjet.integration.ts` nicht in der Diff).
+- [x] BUG-2 ist behoben, siehe Bugs.
 
 #### AC-3: Versand scheitert → Lizenz bleibt, Warn-Toast, „Fehlgeschlagen“
-- [x] **Mit leerem Schlüssel** (Fassung 1) → `{"status":"assigned","invitation":{"status":"failed"}}`.
-  - Die Lizenz besteht und zählt („5 von 5“), der Versandstand steht auf `failed`.
-  - Die fehlgeschlagene Versendung ist gelöscht, zählt also nicht.
-- [x] **Mit ungültigem Schlüssel** (Fassung 3) → `{"status":"failed"}`, im Log nur „Mailjet: Einladung nicht versendet (HTTP 401)“.
-- [x] **Warn-Toast:** Titel „Lizenz zugewiesen“, Zusatz wörtlich (`invitations.rules.ts:212-216`, `assign-license-dialog.tsx:73-75`).
-- [x] **Zeitgrenze 10 s ohne Neuversuch:** `mailjet.integration.ts:6,46-47`, Test „bricht nach genau 10 Sekunden ab …“ (`mailjet.integration.test.ts:300`, im Suite-Lauf grün).
+- [x] **Mit leerem Schlüssel** (Regression des Laufzeitwegs): Zuweisen → `assigned` mit `invitation.status = failed`, in der DB `license_invitations.status = failed` und 0 Versendungen.
+- [=] Ungültiger Schlüssel (HTTP 401), Warn-Toast-Text, Zeitgrenze 10 s ohne Neuversuch. Unverändert seit 2026-11-01.
 - [!] NOT VERIFIED: der sichtbare Toast (kein Browser) und eine echte Zeitüberschreitung von Mailjet (nicht auslösbar).
 
 #### AC-4: Genau ein Zustand pro Lizenz, als Text, mit passender Aktion
-- [x] **Alle vier Zustände** im HTML von `/licenses`, in Spalte „Einladung“ und Kartenzeile „Einladung:“:
-  - „Fehlgeschlagen | Erneut senden“
-  - „Wird versendet“ ohne Knopf
-  - „Noch nicht eingeladen | Einladung senden“
-  - „Versendet am 01.11.2026 | Erneut senden“
-- [x] **Badge:** Symbol `aria-hidden`, das Wort trägt den Zustand (`invitation-status.tsx:27-39`). Regeln: `invitations.rules.ts:74-99`.
-- [ ] BUG-3 (Low): Der zugängliche Name „Einladung an <Adresse> senden“ enthält den sichtbaren Text „Einladung senden“ nicht zusammenhängend (WCAG 2.5.3).
-- [!] NOT VERIFIED: „ohne seitliches Scrollen“ auf dem Smartphone und die Tippflächen von 44 px. Dafür braucht es einen Viewport; im Markup stehen `flex-wrap` und `[overflow-wrap:anywhere]`.
+- [=] Alle vier Zustände im HTML von `/licenses`, Badge mit Text. Unverändert seit 2026-11-01 (`invitation-status.tsx`, `license-list.tsx`, `invitations.rules.ts` nicht in der Diff).
+- [ ] BUG-3 (Low, Deferred): unverändert seit 2026-11-01, nicht erneut geprüft (`send-invitation-button.tsx` und `invitations.rules.ts` nicht in der Diff).
+- [!] NOT VERIFIED: „ohne seitliches Scrollen“ auf dem Smartphone und Tippflächen von 44 px. Dafür braucht es einen Viewport.
 
 #### AC-5: „Erneut senden“ schickt dieselbe Einladung, Rückmeldung, Liste ohne Neuladen
-- [x] **Erfolgspfad** (Fassung 4) → `{"status":"sent"}` nach 1,3 s.
-  - Versandstand `sent` mit neuem `last_attempt_at`, zwei angenommene Versendungen.
-  - Die zweite Mail kam mit demselben Inhalt an (Nutzer).
-- [x] **Fehlerpfad** (Fassung 1): für `sent`, `failed` und „hängend“ jeweils `{"status":"failed"}`, danach `failed` mit neuem Zeitstempel.
-- [x] **Ohne Neuladen:** Die Antwort trägt `x-action-revalidated` und den neu gerenderten Baum (`invitations.actions.ts:40`, `refresh()`).
-- [x] **Toast-Texte** wörtlich: `invitations.rules.ts:166-169`.
+- [x] **Fehlerpfad** (Regression des Laufzeitwegs): `sendInvitation` → `{"status":"failed"}` mit neuem `last_attempt_at`.
+- [=] Erfolgspfad mit echter zweiter Mail, Neurendern ohne Neuladen, Toast-Texte. Unverändert seit 2026-11-01.
 - [!] NOT VERIFIED: dass der Browser den Baum einspielt und den Toast zeigt (kein Browser).
 
 #### AC-6: Altbestand → „Noch nicht eingeladen“, nichts automatisch, Klick versendet
-- [x] Eine per SQL angelegte Lizenz ohne Versandstand zeigt „Noch nicht eingeladen“ mit „Einladung senden“ (`aria-label` „Einladung an … senden“). In `license_invitations` entsteht dabei nichts.
-- [x] Der Klick läuft über dieselbe Action `sendInvitation`: `{"status":"failed"}` mit der Logzeile „nicht eingestellt“ (Fassung 1).
+- [=] Unverändert seit 2026-11-01 (Liste, Regeln und `sendInvitation` nicht in der Diff).
 
 #### AC-7: Grenze 3 pro Lizenz in 24 Stunden, auch an der Oberfläche vorbei
-- [x] **Aufbau:** 3 angenommene Versendungen in 24 h (−22 h, −10 h, −1 h) plus eine mit −25 h.
-  - Ergebnis per POST: `{"status":"license_limit","availableFrom":"2026-11-01T11:00:30.000Z"}`. Das ist die älteste im Fenster plus 24 h; die Zeile mit −25 h zählt nicht.
-  - Der Status bleibt unverändert.
-  - Text: „… Sie können sie ab 01.11.2026, 12:01 Uhr erneut senden.“, aufgerundet und in Berlin-Zeit (Abnahme-Prüfer).
-- [x] **Gegenprobe der Security-Prüferin** mit −3/−2/−1 h: `availableFrom` = älteste + 24 h.
-- [x] **Garantie in der Migration:** `supabase/migrations/20261026150000_proj3_license_invitations.sql:154-169`.
+- [=] Unverändert seit 2026-11-01 (Migration und Datenzugriff nicht in der Diff).
 
 #### AC-8: Grenze 30 pro Träger in 24 Stunden, entzogene zählen mit, auch beim Zuweisen
-- [x] **Senden** bei 30 gezählten Versendungen, davon 27 ohne Lizenz (entzogen): `{"status":"provider_limit","availableFrom":…}` = `min(started_at)` + 24 h. Der Status bleibt.
-- [x] **Zuweisen** bei 30: `{"status":"assigned","invitation":{"status":"provider_limit",…}}`. Die Lizenz besteht, es entsteht kein Versandstand („Noch nicht eingeladen“).
-  - Von beiden Prüfern unabhängig nachgestellt.
-- [x] **Texte und Toast-Art:** `invitations.rules.ts:147-149,210-211`, `assign-license-dialog.tsx:73-75`. Garantie: Migration `:171-192`.
+- [=] Unverändert seit 2026-11-01 (Migration und Datenzugriff nicht in der Diff).
 
 #### AC-9: Datentrennung beim Lesen und Auslösen, Schreibschutz, Adresse nur aus der Lizenz
-- [x] **PostgREST mit dem Token von A:**
-  - `GET license_invitations` liefert nur Zeilen von A; die Zeile von B ergibt `[]`.
-  - INSERT, PATCH und DELETE → 403 `42501`.
-  - `rpc/license_center_begin_invitation` (für A und B) und `rpc/license_center_finish_invitation` → 403.
-  - Das Schema `private` antwortet mit 406 `PGRST106`.
-- [x] **Nur der öffentliche Schlüssel:** SELECT, INSERT und RPC → 401 `42501`, keine Zeilen.
-- [x] **SQL-Rollenprobe** (Security-Prüferin, zurückgerollt):
-  - `authenticated` als A: Upsert, Update, Delete und die Versendungen lesen, anlegen, löschen → `42501`; begin, finish und cleanup → `42501`.
-  - `anon`: alles `42501`.
-  - Katalog: `proacl` beider Funktionen = `{postgres, service_role}`, `prosecdef`, `search_path=''`; RLS an; genau eine Leseregel für `authenticated`.
-- [x] **Über die App:** A sendet für die Lizenz von B, auch mit mitgeschicktem `trainingProviderId` und `email` → `{"status":"already_revoked"}`. Bei B ändert sich nichts.
-  - Fremde, nicht existierende und die Nil-UUID antworten gleich, es gibt also kein Orakel für Lizenz-IDs.
-- [x] **Adresse nur aus der Lizenz:** Zod verwirft fremde Felder (`invitations.schema.ts:8`), die Adresse liest die Beginn-Funktion (Migration `:132-136`), `invitations.delivery.ts:50`.
-  - Die echte Mail ging an die gespeicherte, normalisierte Adresse. Eingegeben war die Adresse mit Leerzeichen am Rand, Großbuchstaben und `+`-Zusatz; der Nutzer hat den Empfänger bestätigt.
-- [x] **Abgemeldet:** keine Zeilen (siehe oben), die Action leitet auf `/login?reason=session` um.
+- [=] PostgREST mit Token und öffentlichem Schlüssel, SQL-Rollenprobe, Katalog, fremde Lizenz über die App, Adresse nur aus der Lizenz. Unverändert seit 2026-11-01 (RLS, Funktionen, `invitations.data.ts`, `invitations.schema.ts` nicht in der Diff).
 
 #### AC-10: Datenschutzhinweis am Ende der Einladung
-- [x] **Echte Mail:** Der Hinweis steht am Ende (Nutzer).
-- [x] **Code und gerenderte Mail:** wörtlich laut Spec, mit dem Trägernamen an allen drei Stellen, in Text- und HTML-Fassung (`invitation-mail.rules.ts:50-51,150,176`).
-- [ ] BUG-2 (Low): Bei einem Namen mit Schlusspunkt endet der Hinweis mit „…an <Name>..“.
+- [x] **Wortlaut** laut Spec, mit dem Trägernamen an allen drei Stellen, als letzter Absatz nach „--“ (Render HEAD, `invitation-mail.rules.ts:52-53`).
+- [x] **Satzende:** endet mit „… richten Sie bitte an <Name>.“ und bei „Bildungswerk e.V.“ ohne zweiten Punkt, in Text- und HTML-Fassung (Render; Test `invitation-mail.rules.test.ts` → „Trägername am Satzende (AC-2, AC-10)“).
+- [=] Hinweis am Ende der echten Mail (Nutzer). Unverändert seit 2026-11-01.
+- [x] BUG-2 ist behoben, siehe Bugs.
 
 #### AC-11: Keine Werbung, kein Zählpixel, keine umgeleiteten Links
-- [x] **Echte Mail, vom Nutzer im Original geprüft:**
-  - kein Bild, kein Mailjet-Logo, kein Werbetext
-  - kein `<img` im Quelltext
-  - der Knopf zeigt direkt auf das Linkziel, nicht auf eine Mailjet-Domain
-- [x] **Code:** `TrackOpens`/`TrackClicks: 'disabled'` (`mailjet.integration.ts:38-39`). HTML ohne Bilder, externe Stile und Schriften (`invitation-mail.rules.ts:156-180`).
+- [x] **Render HEAD:** kein `<img`, kein `<link`, kein `@import`, kein `url(`. Genau 2 `<a href>`, beide direkt auf das Linkziel.
+- [=] `TrackOpens`/`TrackClicks: 'disabled'` und die vom Nutzer im Original geprüfte echte Mail. Unverändert seit 2026-11-01 (`mailjet.integration.ts` nicht in der Diff).
 
 #### AC-12: Löschen mit Lizenz und Träger, Versandstand ohne Adresse, Zähler nach 24 h weg
-- [x] **Spalten live:** `license_invitations` = `license_id, training_provider_id, status, last_attempt_at`; `license_center_invitation_sends` = `id, training_provider_id, license_id, outcome, started_at`. Keine Adresse, kein Inhalt.
-- [x] **Entziehen der echten Lizenz** (Fassung 4) → `{"status":"revoked"}`.
-  - Danach: Lizenz 0, Versandstand 0, Versendungen mit Verweis 0, 2 angenommene Versendungen ohne Verweis.
-  - Die Adresse steht in keiner der 8 Tabellen in `public` und `private`.
-- [x] **Träger gelöscht** (über die Mitgliedschaft bzw. das Konto): Lizenzen, Versandstände und Versendungen des Trägers jeweils 0. Unabhängig nachgestellt von allen drei Prüfern und der `/qa`-Sitzung.
-- [x] **Aufräumjob** `license-center-invitation-cleanup`: `*/5 * * * *`, aktiv. Er hat eine Zeile mit −25 h gelöscht und eine mit −22 h stehen lassen (Abnahme-Prüfer).
+- [=] Spalten, Kaskaden, Entziehen der echten Lizenz, Aufräumjob. Unverändert seit 2026-11-01 (`supabase/` nicht in der Diff).
+- [x] **Nebenbei belegt:** Das Löschen des Testkontos `qa6-rev@example.com` hat Träger, Lizenz und Versandstand mitgenommen (Endstand 0/0/0, siehe Aufräumen).
 - [!] NOT VERIFIED — go-live: die Aufbewahrung bei Mailjet (Kontakte, Versandverlauf, T21).
 
 ## Edge Cases
 
-#### EC-1: Laufender Versand → keine zweite Mail, „wird gerade versendet“, Knopf gesperrt
-- [x] **Laufzeit:** Ein Versandstand `sending`, jünger als 2 min → `{"status":"already_sending"}`, kein neuer Versand, Zeitstempel unverändert.
-  - Drei gleichzeitige POSTs ergaben einmal `already_sending`. Die beiden `failed` liefen nacheinander, weil ohne Mailjet ein Versuch nur Millisekunden dauert.
-- [x] **Garantie:** Advisory Lock pro Träger und Prüfung „läuft schon“ in derselben Transaktion (Migration `:124-127,141-150`). Bei einer Ablehnung entsteht keine Versendung.
-- [x] **Knopf:** `disabled`, `aria-busy` und eine `inFlight`-Ref (`send-invitation-button.tsx:41-46,67-68`), Tests `send-invitation-button.test.tsx:112,125`.
-
-#### EC-2: 29 Versendungen, zwei gleichzeitige für verschiedene Lizenzen → genau eine
-- [x] **Live, per SQL:** Zwei parallel gestartete `license_center_begin_invitation` reservierten genau eine `pending`-Zeile (Abnahme-Prüfer).
-- [x] **Live, über die App:** Zwei parallele POSTs endeten einmal mit `failed` (reserviert) und einmal mit `provider_limit` (Security-Prüferin).
-- [x] **Garantie:** Sperre pro Träger (Migration `:124-127`) und Mitzählen von `pending` jünger als 2 min (`:173-192`) in derselben Transaktion wie die Reservierung (`:195-202`). DB-Test `src/test/db/invitations.test.ts:394` (im Suite-Lauf grün).
-
-#### EC-3: Hängender Versand nach 2 Minuten → „Fehlgeschlagen“, erneut senden möglich
-- [x] Ein Versandstand `sending`, älter als 2 min, wird als „Fehlgeschlagen | Erneut senden“ gerendert, obwohl in der DB `sending` steht (09:24:08 bei `last_attempt_at` 09:21:46). Erneut senden ist erlaubt.
-- [x] Regeln: `invitations.rules.ts:79-85`, Beginn-Funktion Migration `:145-150`. Grenzfälle (genau 2 min, 1:59,999 min, unlesbarer Zeitpunkt) in `invitations.rules.test.ts:76-97`.
-
-#### EC-4: Mail trotz Zeitüberschreitung raus → doppelt möglich, Liste zeigt den letzten Versuch
-- [x] **Garantie:** kein Neuversuch (`mailjet.integration.ts:52-68`). Der Abschluss ändert den Stand nur, wenn `last_attempt_at = started_at` (Migration `:263-267`).
-- [x] **Live:** `last_attempt_at` um 1 s vorgestellt, dann `finish_invitation(…, false)` → der Stand blieb `sending` mit dem neueren Zeitstempel.
-- [!] NOT VERIFIED: die doppelte Zustellung selbst. Eine Zeitüberschreitung bei Mailjet lässt sich nicht auslösen.
-
-#### EC-5: Entziehen während des Versands → nichts bleibt, danach „bereits entzogen“
-- [x] Nach dem Entziehen bleiben weder Versandstand noch Versendung mit Verweis; auch bei der echten Lizenz (siehe AC-12).
-- [x] Danach liefert `sendInvitation` für dieselbe ID `{"status":"already_revoked"}`, auch bei der echten Lizenz (Fassung 4).
-- [x] **Garantie:** `for key share` (Migration `:132-136`), Kaskade bzw. `set null` (`:17,43`), ein Abschluss ohne Lizenz ändert nichts (`:259`, DB-Test `invitations.test.ts:306`).
-
-#### EC-6: Entziehen und dieselbe Adresse neu zuweisen → neue Einladung, Lizenzgrenze bei null
-- [x] Die neue Lizenz-ID löst beim Zuweisen den Versand aus. Er endete mit `provider_limit`, weil die alten Versendungen weiter für den Träger zählen.
-- [x] Nach dem Absenken auf 29 liefert `sendInvitation` für die neue Lizenz `failed` statt `license_limit`: Die Grenze pro Lizenz beginnt bei null.
+#### EC-1 bis EC-6
+- [=] Laufender Versand, gleichzeitige Versendungen an der Grenze, hängender Versand, Zeitüberschreitung, Entziehen während des Versands, Neuzuweisung. Unverändert seit 2026-11-01. Garantien und Code liegen in der Migration, in `invitations.delivery.ts`, `invitations.rules.ts` und `send-invitation-button.tsx`, nichts davon ist in der Diff.
 
 #### EC-7: Trägername mit Sonderzeichen, HTML, Link, sehr lang → reiner Text
-- [x] **HTML und Links entschärft:** `<b>fett</b>`, `<img onerror>`, `</p><a href>`, `"'&` erscheinen maskiert. `www.…`, `https://…` und `a@b.de` bekommen U+200B nach `.`, `@`, `:` und `/`. `\r\nBcc:` wird zu einem Leerzeichen.
-  - Live-Name „QA5-ACC A <b>fett</b> www.beispiel.de & Co“ gerendert (Abnahme-Prüfer).
-  - In der echten Mail stand „QA5-OWN Bildungswerk e.V.“ als Text, nicht als Link (Nutzer).
-- [x] Tests `invitation-mail.rules.test.ts` → „Trägername als reiner Text (EC-7)“, ergänzt von `/qa` um sieben Fälle (siehe Unit-Tests).
-- [ ] BUG-1 (Low): Unicode-Formatzeichen wie U+202E (RIGHT-TO-LEFT OVERRIDE) bleiben im Namen und drehen die Leserichtung.
+- [x] **Maskierung und Entschärfung unverändert:** `plainName` und `escapeHtml` sind nicht geändert. Für `<b>x</b> www.a.de & "Co"`, einen Namen mit 100 Zeichen und `\r\nBcc:` sind Text und HTML bei HEAD und `024a0a2` gleich (Prüfer, Vergleichsskript).
+- [x] **HTML am Satzende** bleibt maskiert („&lt;/·b&gt;.“). `atSentenceEnd` läuft nach dem Maskieren und hängt nur „.“ an, nie Nutzerinhalt.
+- [x] **Kein ReDoS:** Die Regex `/\.​?$/` (`:47`) ist am Ende verankert und linear.
+- [ ] BUG-1 (Low, Deferred): besteht unverändert. Neu beobachtet: Endet der Name auf „.“ und danach ein Formatzeichen, kommt der doppelte Punkt wieder (siehe Bugs).
 
 #### EC-8: Adresse mit `+`, Bindestrich, Subdomain → geht an genau diese Adresse
-- [x] **Echte Mail:** Die eigene Adresse des Nutzers, eingegeben mit Leerzeichen am Rand, Großbuchstaben und `+`-Zusatz, wurde ohne Leerzeichen und kleingeschrieben gespeichert (SQL-Vergleich → `true`) und an genau diese Form mit `+`-Zusatz zugestellt (Nutzer).
-- [x] `qa5-acc+tag-x@sub.example.com` wird so gespeichert und gelistet. Die Beginn-Funktion gibt die Adresse unverändert zurück (`:132,204`), sie geht unverändert an `To` (`mailjet.integration.ts:33`, Test `mailjet.integration.test.ts:159`).
+- [=] Unverändert seit 2026-11-01 (Beginn-Funktion und `mailjet.integration.ts` nicht in der Diff).
 
 #### EC-9: Zugang oder Linkziel nicht eingestellt oder ungültig → App läuft, Versand „Fehlgeschlagen“
-- [x] **Schlüssel leer** (Fassung 1): Die App startet, Zuweisen funktioniert, jeder Versand endet `failed`. Der Client bekommt nur `{"status":"failed"}`, im Log steht nur „Mailjet: Einladung nicht versendet (nicht eingestellt)“.
-- [x] **Schlüssel ungültig** (Fassung 3): `{"status":"failed"}`, im Log nur „(HTTP 401)“. Kein Schlüssel und keine Adresse im Log (`grep -E "@|qa-invalid-key"` → nur die npm-Kopfzeile).
-- [x] **Linkziel ungültig** (Fassung 2): Zuweisen → `{"status":"assigned","invitation":{"status":"failed"}}`, Versandstand `failed`, 0 Versendungen.
-  - Mailjet wurde nicht aufgerufen, im Log steht keine „Mailjet …“-Zeile.
-  - `platformUrlFrom` lehnt `javascript:`, `data:`, `mailto:`, `ftp:`, relative Pfade, Zugangsdaten und mehr als 2.048 Zeichen ab (`invitation-mail.rules.test.ts`).
-- [ ] BUG-4 (Low): Bei ungültigem oder fehlendem Linkziel nennt keine Zeile auf der Server-Konsole die Ursache. Das Design verspricht das.
-- [!] NOT VERIFIED zur Laufzeit: fehlendes (statt ungültiges) `LEARNING_PLATFORM_URL`. Das ist derselbe Zweig (`platformUrlFrom(undefined)` → `null`, `invitations.delivery.ts:46-47`), per Test belegt.
+- [x] **Schlüssel leer** (laufender Server): Die App startet, Zuweisen funktioniert, der Versand endet `failed`. Der Client bekommt nur `{"status":"failed"}`, im Log stehen nur 2 Zeilen „Mailjet: Einladung nicht versendet (nicht eingestellt)“.
+- [x] **`platformUrlFrom`** liefert für 8 Eingaben dasselbe wie bei `024a0a2`: `https:`, `javascript:`, `data:`, Zugangsdaten, leer, `undefined`, relativ, `ftp:` (Prüfer, Vergleichsskript).
+- [=] Ungültiger Schlüssel (HTTP 401) und ungültiges Linkziel zur Laufzeit. Unverändert seit 2026-11-01; ein Neustart mit anderer Umgebung war für diese Diff nicht nötig, weil `platformUrlFrom` und `invitations.delivery.ts` gleich geblieben sind.
+- [ ] BUG-4 (Low, Deferred): unverändert seit 2026-11-01, nicht erneut geprüft (`invitations.delivery.ts` nicht in der Diff).
 
-#### EC-10: Verbindungsabbruch beim Senden → „Keine Verbindung“, nach Neuladen der echte Stand
-- [x] **Code und Test:** `TypeError` → „Keine Verbindung. Bitte versuchen Sie es erneut.“ (`invitations.rules.ts:192-197`, `send-invitation-button.tsx:48-54`, Test `send-invitation-button.test.tsx:136`). Nach dem Neuladen rendert der Server den Stand aus der DB (siehe AC-4).
-- [!] NOT VERIFIED: ein echter Verbindungsabbruch. Dafür braucht es einen Browser.
-
-#### EC-11: In anderem Tab abgemeldet oder kein Träger → nichts geht raus
-- [x] **Abgemeldet** bzw. mit dem Cookie einer beendeten Sitzung: `x-action-redirect: /login?reason=session`, kein Versuch eingetragen.
-- [x] **Ohne Träger** (Mitgliedschaft entfernt): `{"status":"unassigned"}`, für eigene und fremde Lizenz-IDs. Es wird nichts gelesen oder gesendet (`invitations.actions.ts:18-19`).
-
-#### EC-12: Kontingent ausgeschöpft oder überschritten → erneut senden trotzdem möglich
-- [x] Bei 5 von 5 und nach `license_quota = 3` (5 von 3) ist `sendInvitation` für eine bestehende Lizenz erlaubt (`failed` nur wegen des abgeschalteten Versands, mit Logzeile).
+#### EC-10 bis EC-12
+- [=] Verbindungsabbruch, abgemeldet oder ohne Träger, Kontingent ausgeschöpft. Unverändert seit 2026-11-01.
+- [!] NOT VERIFIED: ein echter Verbindungsabbruch (EC-10). Dafür braucht es einen Browser.
 
 ### Weitere Edge Cases (nicht in der Spec)
-- [x] Ungültige Eingaben an `sendInvitation`: keine UUID, `{}`, `[]`, String statt Objekt, `null`, `__proto__`, SQL- und XSS-Reste → jeweils `{"status":"error"}`, nichts geschrieben.
-- [x] Die UUID in Großbuchstaben verhält sich wie die kleingeschriebene.
-- [x] „Versendet am“ an der Tagesgrenze und beim Wechsel zur Sommerzeit: `2026-10-31T23:30Z` → „01.11.2026“, `2026-03-29T22:30Z` → „30.03.2026“.
-- [ ] BUG-2 (Low): Trägername mit Schlusspunkt (siehe AC-2, AC-10).
-- [ ] BUG-3 (Low): zugänglicher Name des Knopfs „Einladung senden“ (siehe AC-4).
+- [=] Ungültige Eingaben an `sendInvitation`, UUID in Großbuchstaben, „Versendet am“ an Tagesgrenze und Sommerzeit. Unverändert seit 2026-11-01.
+- [x] **Satzende, neu in diesem Lauf** (Render HEAD, Prüfer):
+  - „Akademie...“ → kein vierter Punkt
+  - „A.“ (Mindestlänge) → „A.“
+  - „info@werk.de.“ → kein zweiter Punkt
+  - „Werk (e.V.)“, „Werk e.V.)“, „Werk "e.V."“ → „).“ bzw. „".“, wie es die deutsche Zeichensetzung verlangt
+  - „www.werk.de“ → „… de.“
+- [ ] BUG-5 (Low, Deferred, neu): Name endet auf „!“, „?“ oder „…“ → „… an Lern!.“ (siehe Bugs).
+- [ ] BUG-1 (Low, Deferred): Name endet auf „.“ plus U+200B oder U+202C → doppelter Punkt (siehe Bugs).
+- [!] Name endet auf „.“ plus NBSP, Tabulator oder Zeilenumbruch → „e.V. .“. Über das Formular der App nicht erreichbar, weil JS `trim()` diese Zeichen entfernt. Ob ein anderer Weg dorthin führt, ist nicht geprüft und gehört zu PROJ-1 (siehe O-8).
 
 ## Security-Audit
 
-- [x] **Authentication:**
-  - `curl -i /licenses` ohne Cookie → 307 `/login?reason=session`.
-  - `sendInvitation` ohne Cookie bzw. mit dem Cookie einer abgemeldeten Sitzung → Umleitung, `last_attempt_at` unverändert.
-  - Der Wächter steht vor allem anderen (`invitations.actions.ts:18-19`), mit `getUser` (`session.data.ts:32-36`).
-  - `deliverInvitation` liegt nicht in einer `'use server'`-Datei (`invitations.delivery.ts:1-5`).
-- [x] **Authorization über die App:** Lizenz von B mit der Sitzung von A → `already_revoked`. Doppelt durchgesetzt: RLS-Lesecheck (`invitations.data.ts:38-52`) und Trägerprüfung in der DB-Funktion (Migration `:132-139`).
-- [x] **Authorization an der Datenbank:** siehe AC-9. PostgREST mit Token und öffentlichem Schlüssel, SQL-Rollenprobe und Katalog.
-- [x] **Input validation:** `z.object({ licenseId: z.uuid() })` (`invitations.schema.ts:8`). SQL-, XSS- und Prototyp-Nutzlasten → `{"status":"error"}`. Untergeschobene `email`, `trainingProviderId` und `to` werden verworfen.
-- [x] **Mail-Injection über den Trägernamen:** HTML maskiert, Links entschärft, Zeilenumbrüche entfernt. Betreff und Absender enthalten den Namen nie (siehe EC-7).
-  - [ ] BUG-1 (Low): Bidi- und Formatzeichen werden nicht neutralisiert.
-- [!] **Rate limiting auf `sendInvitation`:** NOT VERIFIED — nicht implementiert (optional für das MVP). 20 Aufrufe hintereinander → 20 × `failed`, keine Drosselung. Die Versandgrenzen 3/30 sind vorhanden und belegt (AC-7, AC-8). Siehe O-1.
-- [!] **Brute force:** NOT VERIFIED — nicht anwendbar. PROJ-3 hat keinen Login, keine Registrierung, kein Passwort-Zurücksetzen und keine eigene Prüfung von Zugangsdaten. `licenseId` ist kein Credential, und fremd sieht aus wie nicht vorhanden.
-- [x] **Keine Account-Enumeration** (PROJ-1, als Regression): Falsches Passwort und unbekannte Adresse → beide `{"formError":{"message":"E-Mail-Adresse oder Passwort ist falsch."}}`, 1,02 s bzw. 1,01 s.
-- [x] **Keine Zugangsdaten und Adressen in URLs:**
-  - Der Sendeknopf ist `type="button"` ohne Formular (`send-invitation-button.tsx:63-69`).
-  - Der Zuweisen-Dialog nutzt `<form method="post" … onSubmit>` (`assign-license-dialog.tsx:134`).
-  - Im Server-Log stehen alle Actions als `POST /licenses` ohne Query.
-  - Die Adresse steht nur im `aria-label`.
-- [x] **Keine Geheimnisse im Client-Bundle:**
-  - Produktions-Build `s4m-NiRwhtJKLBd1S3Iyt`, `.next/static` (1,2 MB): 0 Treffer für `MAILJET`, `api.mailjet.com`, `INVITATION_SENDER`, `LEARNING_PLATFORM`, `SERVICE_ROLE`, `service_role`, `sb_secret_`, `TURNSTILE_SECRET`, `eyJhbGciOi`, `createAdminClient`, `deliverInvitation`, `beginInvitation`, `license_center_begin_invitation`.
-  - Ebenso 0 Treffer in den 30 ausgelieferten Dev-Chunks (Security-Prüferin).
-  - `server-only` in `mailjet.integration.ts:3`, `invitations.delivery.ts:1`, `invitations.data.ts:8`.
-  - In `src` gibt es nur `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` und `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
-- [x] **Keine Geheimnisse in der Git-Historie:** `git log -p --all` mit Mustern für gesetzte `MAILJET_*_KEY=`, `sb_secret_` und service_role-JWTs → 0 Treffer.
-- [x] **Keine sensiblen Daten in Antworten:**
-  - `sendInvitation` antwortet nur mit `status` bzw. `availableFrom`, `assignLicense` mit `status` und `invitation.status`.
-  - Die RSC-Antwort enthält 0-mal `send_id`, `training_provider_id`, Träger- oder Nutzer-ID, `ErrorMessage`, `MAILJET` oder Daten von B.
-- [x] **Keine Teilnehmer-Adressen im App-Protokoll:**
-  - Die Server-Logs aller vier Fassungen enthalten nur Zeilen der Form „Mailjet: Einladung nicht versendet (nicht eingestellt | HTTP 401)“.
-  - Das einzige „@“ steht in der npm-Kopfzeile, `.next/dev/logs/next-development.log` enthält 0-mal `example.com`.
-  - Aus der Mailjet-Antwort gelangen nur Fehlercodes der Form `^[a-z]+-\d{4}$` ins Log (`mailjet.integration.ts:9-11`, Test `:279`).
-- [x] **CSRF auf Server Actions:** `sendInvitation` mit gültiger Sitzung und `Origin: https://evil.example` → abgebrochen (500, „x-forwarded-host … does not match origin“). Mit eigenem Origin → 200. Das Cookie ist `HttpOnly; SameSite=lax`.
-- [x] **Sicherheitsheader lokal:** `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: origin-when-cross-origin`, HSTS mit `includeSubDomains`.
+Beschränkt auf die Diff und den Weg vom Trägernamen in die Mail. Die übrigen Punkte sind aus dem ersten Lauf übernommen.
+
+- [x] **Authentication:** `sendInvitation` ohne Cookie → `x-action-redirect: /login?reason=session`, `last_attempt_at` per SQL unverändert.
+- [=] **Authorization über die App und an der Datenbank:** unverändert seit 2026-11-01 (kein Daten- oder Rechtecode in der Diff).
+- [=] **Input validation** von `sendInvitation`: unverändert seit 2026-11-01 (`invitations.schema.ts` nicht in der Diff).
+- [x] **Mail-Injection über den Trägernamen:** HTML maskiert, auch am Satzende; Links mit U+200B entschärft; CR/LF werden zum Leerzeichen. Der neue Helfer fügt nur „.“ ein (Render, siehe EC-7).
+  - [ ] BUG-1 (Low, Deferred): Bidi- und Formatzeichen werden weiter nicht neutralisiert.
+- [!] **Rate limiting auf `sendInvitation`:** NOT VERIFIED — nicht implementiert (optional für das MVP), unverändert seit 2026-11-01. Die Versandgrenzen 3/30 sind vorhanden (AC-7, AC-8). Siehe O-1.
+- [!] **Brute force:** NOT VERIFIED — nicht anwendbar. Die Diff ist reine Textlogik ohne Credential-Pfad, und PROJ-3 hat keinen.
+- [=] **Keine Account-Enumeration** (PROJ-1): unverändert seit 2026-11-01.
+- [x] **Keine Zugangsdaten und Adressen in URLs:** Im Server-Log stehen die Actions dieses Laufs als `POST /licenses` ohne Query.
+  - [=] Formulare (`type="button"` am Sendeknopf, `method="post"` am Dialog): unverändert seit 2026-11-01.
+- [x] **Keine Geheimnisse im Client-Bundle:** Produktions-Build `V075hyVj-9XjufeMUxdlJ`, `.next/static`: 0 Dateien mit `MAILJET`, `api.mailjet.com`, `INVITATION_SENDER`, `LEARNING_PLATFORM`, `SERVICE_ROLE`, `service_role`, `sb_secret_`, `TURNSTILE_SECRET`, `eyJhbGciOi`, `createAdminClient`, `deliverInvitation`, `buildInvitationMail`. Die Mailtexte („Bei Fragen wenden Sie sich“, „Fragen dazu richten Sie“) stehen in 0 Client-Dateien.
+- [x] **Keine Geheimnisse in der Git-Historie:** Fix-Commit `git show e8ac80a | grep -cE "MAILJET_[A-Z_]*KEY=.+|sb_secret_|eyJhbGciOi"` → 0.
+  - [=] Die Historie davor: unverändert seit 2026-11-01 (0 Treffer).
+- [x] **Keine sensiblen Daten in Antworten:** `assignLicense` → `{"status":"assigned","invitation":{"status":"failed"}}`, `sendInvitation` → `{"status":"failed"}`, 0-mal `ErrorMessage` oder `MAILJET`.
+- [x] **Keine Personendaten im App-Protokoll:** `grep -cE "example\.com|QA6|e\.V\.|@" dev-server.log` → 0. Einzige Zeilen zum Versand: 2 × „Mailjet: Einladung nicht versendet (nicht eingestellt)“.
+- [=] **CSRF auf Server Actions:** unverändert seit 2026-11-01.
+- [=] **Sicherheitsheader lokal:** unverändert seit 2026-11-01 (`next.config.ts` nicht in der Diff).
 
 ## Regression
 
-- [x] **Suite-Lauf:** 37 Dateien, 855 Tests bestanden, 0 fehlgeschlagen. Eine E2E-Suite gibt es nicht (`tests/` fehlt), also übersprungen; kein Browser-Runner installiert.
-- [x] **Kein Feature ist „Deployed“.** Geprüft wurden deshalb die verwandten Features PROJ-1 und PROJ-2 (beide „Approved“), die Code und Daten mit PROJ-3 teilen.
-- [x] **PROJ-2 Lizenzverwaltung**, gegen die laufende App:
-  - Zählung und Anzeige (AC-1, AC-3), Liste neueste oben (AC-2)
-  - Normalisieren der Adresse und Zuweisen trotz fehlgeschlagener Einladung (AC-4)
-  - Ablehnung leerer und ungültiger Adressen (AC-5), Doppelte im eigenen Träger (AC-6)
-  - ausgeschöpftes und überschrittenes Kontingent (AC-7, AC-9, EC-4)
-  - Entziehen samt Kaskade auf die neuen Tabellen mit der Verwaltersitzung (AC-8, EC-3)
-  - Datentrennung (AC-10), Spurlosigkeit (AC-11), Spalten von `licenses` unverändert (AC-12)
-  - Konto ohne Träger (EC-7), Adresse als reiner Text (EC-8)
-  - Alles bestanden.
-- [x] **PROJ-1 Konto & Login:**
-  - Registrierung mit 5 Lizenzen (AC-1), Login mit normalisierter Adresse und Kopfzeile (AC-4, EC-4)
-  - gleiche Meldung bei falschem Passwort und unbekannter Adresse (AC-5)
-  - Umleitungen (AC-9), Abmelden und altes Cookie (AC-10), Lesen nur des eigenen Trägers (AC-11)
-  - Kontolöschung räumt auch die neuen Tabellen ab (AC-12)
-  - beide Cron-Jobs aktiv, 13 erfolgreiche Läufe in der letzten Stunde (AC-13)
-  - Meldung ohne Träger (EC-5), Zählbeginn der Sperre (EC-7)
-  - Alles bestanden.
-- [x] **Gemeinsame Bauteile** im HTML:
-  - Kopfzeile mit „Lizenzzentrale“, Trägername und „Abmelden“
-  - Formulare auf `/login` und `/register` mit `method="post"`
-  - Tabelle mit „E-Mail-Adresse | Zugewiesen am | Einladung | Aktion“ und Karten mit „Einladung:“
-- [!] NOT VERIFIED: die PROJ-1- und PROJ-2-Kriterien, die PROJ-3 nicht berührt (Diff: `account/*`, `proxy` und die Migrationen von PROJ-1 und PROJ-2 sind unverändert). Belegt durch den Suite-Lauf; das Budget der gemeinsamen Login-Bremse erlaubte nicht mehr.
+- [x] **Suite-Lauf:** 37 Dateien, 864 Tests bestanden, 0 fehlgeschlagen, keine Skip-Zeilen. Eine E2E-Suite gibt es nicht (`tests/` fehlt), also übersprungen; kein Browser-Runner installiert.
+- [x] **Laufzeitweg der geänderten Datei** gegen die laufende App: Registrieren → `/licenses` 200 mit dem Trägernamen im HTML → `assignLicense` (`assigned`, Einladung `failed`) → `sendInvitation` (`failed`, neuer `last_attempt_at`). Kein unerwarteter Fehler im Log, in der DB `failed` und 0 Versendungen.
+- [x] **Kein Feature ist „Deployed“** (`features/INDEX.md`). Es gibt also keine deployten Nachbarn, die die Diff treffen könnte.
+- [=] **PROJ-1 und PROJ-2:** Die Diff berührt keinen ihrer Teile (`account/*`, `licenses/*`, `proxy`, Migrationen). Die Regression vom 2026-11-01 gilt weiter, belegt durch den Suite-Lauf.
 
 ## Unit-Tests (`/qa`, Step 6)
 
-- **Bewertet:** Alle Module von PROJ-3 haben schon Tests neben sich (Regeln 31, Mail 22, Mailjet 14, Daten 11, Versand 10, Actions 9, Knopf 10, Badge 8, Schema 3 Testblöcke).
-  - Grenzfälle sind dort abgedeckt: genau 2 Minuten, unlesbarer Zeitpunkt, Sommerzeit, Aufrunden, HTML-Maskierung, Linkziel nach dem Normalisieren, Fehlercodes im Log, unlesbares `available_from`.
-- **Ergänzt** in `src/features/invitations/invitation-mail.rules.test.ts`: sieben Fälle zur Regel „Steuerzeichen sowie Zeilen- und Absatztrenner im Trägernamen werden zu einem Leerzeichen“ (Design-Abweichung 2). Getestet war bisher nur `\r\n`.
-  - Neu: U+2028, U+2029, NEL (U+0085), Tabulator, Seitenvorschub, NUL und mehrere hintereinander.
-  - Geprüft wird jeweils: 7 Absätze, der Name an allen 5 Stellen als „Institut Nord“, keines der Zeichen in Text- oder HTML-Fassung.
-- **Lauf der Datei:** `npx vitest run src/features/invitations/invitation-mail.rules.test.ts` → 44 bestanden.
-- **Rotprobe** (einmal für die Datei): Die Regel in `invitation-mail.rules.ts:65` wurde vorübergehend auf `[\r\n]+` zurückgesetzt. Alle 7 neuen Fälle wurden rot, der bestehende `\r\n`-Fall blieb grün. Danach `git checkout` der Quelldatei (`git diff` leer), wieder 44 bestanden.
-- Für BUG-1 bis BUG-4 hat `/qa` keine Tests geschrieben; sie wären heute rot. Die Tests dazu kommen mit dem Fix in `/build`.
+- **Bewertet:** Das neue Verhalten deckt `invitation-mail.rules.test.ts` → „Trägername am Satzende (AC-2, AC-10)“ ab. Zwei Fälle stammen aus dem Fix: Schlusspunkt im Namen (Text und HTML) und Punkt mitten im Namen (Text). Namen ohne Punkt deckt die bestehende Absatzliste in beiden Fassungen ab (`:10`, `:16`). `/qa` hat deshalb keinen Test ergänzt.
+- **Rotprobe auf die Tests aus dem Fix** (einmal für die Datei, von der `/qa`-Sitzung):
+  - `atSentenceEnd` auf „hängt immer einen Punkt an“ gesetzt → 1 fehlgeschlagen: „ein Schlusspunkt im Namen beendet den Satz …“.
+  - `atSentenceEnd` auf „hängt nie einen Punkt an“ gesetzt → 11 fehlgeschlagen, darunter der Gegentest „ein Punkt mitten im Namen lässt den Schlusspunkt stehen“.
+  - Danach `git checkout` der Quelldatei (`git diff` leer), wieder 46 bestanden.
+- Für BUG-5 hat `/qa` keinen Test geschrieben; er wäre heute rot. Der Test dazu kommt mit dem Fix in `/build`.
+- [=] Die 7 Fälle von `/qa` aus dem ersten Lauf (Steuer- und Trennzeichen im Namen) sind grün im Suite-Lauf.
 
 ## E2E-Tests
 _Optionale Ebene, geschrieben von `/e2e-tests`, nur für kritische Kernabläufe._
@@ -304,35 +181,35 @@ _Optionale Ebene, geschrieben von `/e2e-tests`, nur für kritische Kernabläufe.
 
 ## `[user]`-Aufgaben
 
-- [x] **T1, T2, T4, T6** (Mailjet-Konto, bestätigter Absender, Schlüssel, echte Werte in `.env.local`): Mit den echten Werten hat Mailjet zwei Einladungen angenommen, und sie kamen an (Fassung 4). Ein unbestätigter Absender hätte 403 `send-0008` ergeben.
-- [x] **T3** (Tracking im Konto aus): Die angekommene Mail hat keinen umgeleiteten Link und kein Bild (Nutzer). Die App schaltet die Verfolgung zusätzlich pro Mail ab. Die Konto-Einstellung selbst ist im Dashboard nicht eingesehen.
+- [=] **T1–T4, T6** (Mailjet-Konto, bestätigter Absender, Tracking aus, Schlüssel, echte Werte): im ersten Lauf mit der echten Mail belegt, unverändert seit 2026-11-01.
 - [!] **T5** (Platzhalter in `.env.local.example`): NOT VERIFIED. Die Datei ist für den Agenten gesperrt; der Nutzer hat die Aufgabe abgehakt.
-- [!] **T21–T24** (Löschregel und Auftragsverarbeitungsvertrag bei Mailjet, eigene Absender-Domain, Linkziel der Plattform): NOT VERIFIED — go-live, wird in `/deploy` gemacht und geprüft. Das Test-Gegenstück ist geprüft: kostenloses Konto, eigener bestätigter Absender, eigene Empfänger, selbst gewähltes Linkziel. Keine dieser Aufgaben liegt auf einem Credential-Pfad.
+- [!] **T21–T24** (Löschregel und Auftragsverarbeitungsvertrag bei Mailjet, eigene Absender-Domain, Linkziel der Plattform): NOT VERIFIED — go-live, wird in `/deploy` gemacht und geprüft. Keine davon liegt auf einem Credential-Pfad.
 
 ## Nicht geprüft in diesem Lauf
 
-- [!] **Browser-Verhalten:** sichtbare Toasts (Erfolg, Warnung, Fehler, mit Zusatzzeile), Sperre und Drehsymbol am Knopf, das Einspielen des neu gerenderten Baums (AC-1, AC-3, AC-5, EC-1). Grund: kein Browser; belegt durch die Komponententests im Suite-Lauf.
-- [!] **Responsive Darstellung bei 375/768/1440 px**, Karten ohne seitliches Scrollen, Tippflächen von 44 px (AC-4). Grund: kein Viewport.
+- [!] **Inhalt einer tatsächlich zugestellten Mail mit dem Fix** (AC-2, AC-10, AC-11). Grund: Mailjet-Schlüssel absichtlich leer. Belegt durch Render vorher/nachher und den fehlerfreien Lauf bis zum Mailjet-Schritt; die echte Zustellung stammt aus dem ersten Lauf.
+- [!] **Darstellung in Mailprogrammen** (U+200B, Bidi-Zeichen). Grund: kein Mailprogramm und kein Browser.
+- [!] **Browser-Verhalten:** sichtbare Toasts, Sperre am Knopf, Einspielen des neu gerenderten Baums (AC-1, AC-3, AC-5, EC-1). Grund: kein Browser.
+- [!] **Responsive Darstellung bei 375/768/1440 px**, Tippflächen von 44 px (AC-4). Grund: kein Viewport.
 - [!] **Cross-Browser** (Chrome, Firefox, Safari, Edge). Grund: keine Browser-Engine.
-- [!] **Echter Verbindungsabbruch** (EC-10), **Zeitüberschreitung bei Mailjet und doppelte Zustellung** (AC-3, EC-4). Grund: nicht auslösbar; belegt durch Garantie, Code und Tests.
-- [!] **Fehlendes `LEARNING_PLATFORM_URL` zur Laufzeit** (EC-9). Grund: derselbe Zweig wie das geprüfte ungültige Linkziel, per Test belegt.
-- [!] **Migration als Round-Trip.** Grund: Strategie `single`, kein lokales Supabase. Stattdessen Migrationsliste und Live-Schema geprüft.
-- [!] **Postgres- und PostgREST-Protokoll von Supabase** auf Teilnehmer-Adressen (Technische Anforderungen, PROJ-2 O-1). Grund: von hier nicht einsehbar. Im Code bekommen die Funktionen nur IDs per POST, und keine schreibt eine Zeile mit Adresse (Migration `:195-202`).
+- [!] **Echter Verbindungsabbruch** (EC-10), **Zeitüberschreitung bei Mailjet und doppelte Zustellung** (AC-3, EC-4). Grund: nicht auslösbar.
+- [!] **Postgres- und PostgREST-Protokoll von Supabase** auf Teilnehmer-Adressen. Grund: von hier nicht einsehbar.
 - [!] **Rate limiting auf `sendInvitation`.** Grund: nicht implementiert (optional für das MVP).
 - [!] **Brute force.** Grund: PROJ-3 hat keinen Credential-Pfad.
 - [!] **Sicherheitsheader gegen eine Live-URL.** Grund: Es gibt kein Deployment.
 - [!] **T5** (Datei für den Agenten gesperrt) und **T21–T24** (go-live, `/deploy`).
-- [!] **PROJ-1/PROJ-2-Kriterien, die PROJ-3 nicht berührt** (siehe Regression).
+- Die mit `[=]` markierten Punkte sind in diesem Lauf nicht erneut geprüft. Sie bestanden am 2026-11-01, und ihr Code ist seitdem unverändert.
 
 ## Bugs
 
 #### BUG-1: Bidi- und Formatzeichen im Trägernamen gelangen unverändert in die Einladung
 - **Severity:** Low
 - **Status:** Deferred (Entscheidung des Nutzers, 2026-11-01)
-- **Class:** Unicode-Format- und Bidi-Steuerzeichen (`\p{Cf}`, z. B. U+202E, U+2066–U+2069) in Nutzertext werden vor der Ausgabe in ausgehende Inhalte nicht neutralisiert.
+- **Class:** Unicode-Format- und Bidi-Steuerzeichen (`\p{Cf}`, z. B. U+202E, U+2066–U+2069, U+200B) in Nutzertext werden vor der Ausgabe in ausgehende Inhalte nicht neutralisiert.
   - EC-7 verlangt den Namen „als reiner Text, ohne Formatierung“; eine Richtungsumkehr ist Formatierung.
   - Der Name bleibt dabei unanklickbar und steht weder im Betreff noch im Absender. Die Wirkung ist eine verdrehte Anzeige im Mailtext, die der Verwalter selbst steuert.
-- **Sweep:** `grep -rnE 'p\{Cf\}|u202[A-Ea-e]|u206[6-9]' src --include='*.ts' --include='*.tsx' | grep -v '\.test\.'` → 0 Treffer, es fehlt also überall. Die einzige Stelle, an der freier Nutzertext in ausgehende Inhalte gelangt, ist `plainName` in `src/features/invitations/invitation-mail.rules.ts:63-67`; sie ersetzt nur `\p{Cc}\p{Zl}\p{Zp}`.
+  - **Neu beobachtet (2026-11-01, Nachprüfung):** Endet der Name auf „.“ und danach ein Formatzeichen, erkennt `atSentenceEnd` den Schlusspunkt nicht, und es folgt wieder ein zweiter Punkt. Beispiele: „Werk e.V.“+U+200B → sichtbar „e.V..“, „Werk e.V.“+U+202C ebenso. U+200B kommt durch das Formular, weil JS `trim()` es nicht entfernt und die DB-Regel `name = btrim(name)` (`20261021120000_proj1_training_providers.sql:21`) nur Leerzeichen prüft. Wer die Klasse behebt, behebt das mit.
+- **Sweep:** `grep -rnE 'p\{Cf\}|u202[A-Ea-e]|u206[6-9]' src --include='*.ts' --include='*.tsx' | grep -v '\.test\.'` → 0 Treffer (erneut gelaufen am 2026-11-01, Nachprüfung). Die einzige Stelle, an der freier Nutzertext in ausgehende Inhalte gelangt, ist `plainName` in `src/features/invitations/invitation-mail.rules.ts:65-69`; sie ersetzt nur `\p{Cc}\p{Zl}\p{Zp}`.
 - **Steps to Reproduce:**
   1. Einen Träger registrieren, dessen Name U+202E (RIGHT-TO-LEFT OVERRIDE) enthält, z. B. „Bank“ + U+202E + „moc.live“ + U+202C. Die Namensregel prüft nur 2–100 Zeichen (`account.schema.ts:59-64`, `proj1_training_providers.sql:20-21`).
   2. Eine Lizenz zuweisen.
@@ -341,20 +218,22 @@ _Optionale Ebene, geschrieben von `/e2e-tests`, nur für kritische Kernabläufe.
 
 #### BUG-2: Trägername mit Schlusspunkt ergibt zwei Punkte am Satzende
 - **Severity:** Low
-- **Status:** Open (Entscheidung des Nutzers, 2026-11-01: jetzt beheben)
+- **Status:** Fixed (2026-11-01, re-verified). Behoben in `e8ac80a` durch den Helfer `atSentenceEnd` (`invitation-mail.rules.ts:47`).
 - **Class:** Platzhalter am Satzende ohne Behandlung eines Schlusspunkts, den der eingesetzte Wert schon mitbringt.
-- **Sweep:** `grep -n '\${name}\.' src/features/invitations/invitation-mail.rules.ts` → 2 Treffer: `:48` („Bei Fragen wenden Sie sich an ${name}.“) und `:51` (Ende des Datenschutzhinweises).
-- **Steps to Reproduce:**
+- **Sweep:** `grep -n '\${name}\.' src/features/invitations/invitation-mail.rules.ts` → erneut gelaufen: 1 Treffer (vorher 2), und zwar `:47`, der Rückfallzweig von `atSentenceEnd` selbst. Er hängt den Punkt nur an, wenn der Name nicht schon auf „.“ endet. Das ist die erlaubte Ausnahme.
+  - Über ganz `src`: `grep -rnE '\$\{[^}]+\}\.([^a-zA-Z0-9_$]|$)' src --include='*.ts' --include='*.tsx' | grep -v '\.test\.'` → 1 Treffer, wieder nur `:47`. Kein anderer Wert steht vor einem Satzschlusspunkt.
+- **Nachprüfung:** Für „QA6 Bildungswerk e.V.“ hat der Render von `024a0a2` 2 × „..“ in Text und HTML, der von HEAD 0 ×. Der Name steht weiter an allen 5 Stellen. Tests und Rotprobe: siehe Unit-Tests.
+- **Steps to Reproduce (ursprünglich):**
   1. Einen Träger „QA5-OWN Bildungswerk e.V.“ registrieren und eine Lizenz an eine eigene Adresse zuweisen.
   2. Erwartet: „Bei Fragen wenden Sie sich an QA5-OWN Bildungswerk e.V.“
-  3. Tatsächlich: „… an QA5-OWN Bildungswerk e.V..“, ebenso am Ende des Datenschutzhinweises. Vom Nutzer in der echten Mail bestätigt (2026-11-01).
+  3. Vorher: „… an QA5-OWN Bildungswerk e.V..“, ebenso am Ende des Datenschutzhinweises.
 
 #### BUG-3: Zugänglicher Name „Einladung an <Adresse> senden“ enthält den sichtbaren Text nicht
 - **Severity:** Low
 - **Status:** Deferred (Entscheidung des Nutzers, 2026-11-01)
 - **Class:** Ein zugänglicher Name, der den sichtbaren Text nicht zusammenhängend enthält (WCAG 2.5.3 „Label in Name“). Wer per Sprachsteuerung „Einladung senden“ sagt, trifft den Knopf eventuell nicht. „Erneut senden“ und „Entziehen“ sind im jeweiligen Namen enthalten und damit unkritisch.
   - Der Text stammt so aus dem Design; `/build` hat ihn in `design.md` → Hinweise für `/qa` zur Entscheidung vorgelegt.
-- **Sweep:** `grep -rn 'aria-label={' src/features src/components | grep -v '\.test\.' | grep -v components/ui` → 3 Treffer, 1 betroffen: `send-invitation-button.tsx:66` mit `sendButtonAccessibleLabel` (`invitations.rules.ts:157-158`). Erlaubt: `revoke-license-dialog.tsx:82` („Lizenz von … entziehen“ enthält „entziehen“), `quota-summary.tsx:32` (Fortschrittsbalken ohne sichtbaren Knopftext).
+- **Sweep:** `grep -rn 'aria-label={' src/features src/components | grep -v '\.test\.' | grep -v components/ui` → 3 Treffer, 1 betroffen: `send-invitation-button.tsx:66` mit `sendButtonAccessibleLabel` (`invitations.rules.ts:157-158`). Erlaubt: `revoke-license-dialog.tsx:82` („Lizenz von … entziehen“ enthält „entziehen“), `quota-summary.tsx:32` (Fortschrittsbalken ohne sichtbaren Knopftext). Stand 2026-11-01, erster Lauf; die Diff berührt keine dieser Dateien.
 - **Steps to Reproduce:**
   1. Eine Lizenz ohne Versandstand anlegen und `/licenses` öffnen.
   2. Erwartet: Der zugängliche Name enthält „Einladung senden“ zusammenhängend.
@@ -366,37 +245,45 @@ _Optionale Ebene, geschrieben von `/e2e-tests`, nur für kritische Kernabläufe.
 - **Class:** Eine Fehlkonfiguration endet als „Fehlgeschlagen“ ohne Diagnosezeile.
   - Das Design verspricht in den Technischen Entscheidungen („Einstellungen werden erst beim Senden gelesen …“): „Die Konsole nennt die Ursache ohne Geheimnisse.“ Für fehlende Mailjet-Werte gibt es diese Zeile („nicht eingestellt“), für das Linkziel nicht.
   - Wer die README nachbaut und sich beim Linkziel vertippt, sieht nur „Fehlgeschlagen“ und keinen Grund (PRD → Erfolgskriterien: nachvollziehbar für den Prüfer). Der Verwalter sieht korrekt keine technische Meldung (EC-9).
-- **Sweep:** `grep -n "platformUrl !== null\|console\." src/features/invitations/invitations.delivery.ts` → 2 Treffer: `:47` (Prüfung ohne `else`-Zweig) und `:70` (nur die Zeile für unerwartete Fehler). Keine weitere Einstellung wird beim Senden ohne Logzeile geprüft.
+- **Sweep:** `grep -n "platformUrl !== null\|console\." src/features/invitations/invitations.delivery.ts` → 2 Treffer: `:47` (Prüfung ohne `else`-Zweig) und `:70` (nur die Zeile für unerwartete Fehler). Stand 2026-11-01, erster Lauf; `invitations.delivery.ts` ist nicht in der Diff.
 - **Steps to Reproduce:**
   1. `MAILJET_API_KEY= MAILJET_SECRET_KEY= LEARNING_PLATFORM_URL='javascript:alert(1)' npm run dev`
   2. Eine Lizenz zuweisen → `{"status":"assigned","invitation":{"status":"failed"}}`.
   3. Erwartet: eine Zeile auf der Konsole, die das ungültige Linkziel nennt (ohne Wert).
   4. Tatsächlich: keine Zeile, nur die Request-Zeilen von Next.js.
 
+#### BUG-5: Trägername mit „!“, „?“ oder „…“ am Ende bekommt am Satzende trotzdem einen Punkt
+- **Severity:** Low
+- **Status:** Deferred (neuer, nicht blockierender Befund einer Nachprüfung, 2026-11-01; er löst keine weitere Runde aus)
+- **Class:** Ein Platzhalter am Satzende prüft nur den Abkürzungspunkt „.“, nicht andere Satzschlusszeichen, die der Wert schon mitbringt (`!`, `?`, U+2026 „…“). Steht ein solches Zeichen am Satzende, fällt der Schlusspunkt im Deutschen weg.
+  - Das ist die Nachbarklasse von BUG-2, keine Regression: Bei `024a0a2` war die Ausgabe für diese Namen dieselbe (Prüfer, Vergleichsskript). BUG-2 bleibt geschlossen, weil seine Klasse ausdrücklich den Schlusspunkt nennt.
+- **Sweep:** `grep -rnE '\$\{[^}]+\}\.([^a-zA-Z0-9_$]|$)' src --include='*.ts' --include='*.tsx' | grep -v '\.test\.'` → 1 Treffer, `src/features/invitations/invitation-mail.rules.ts:47`. Das ist die einzige Stelle, an der ein Wert einen Satz beendet. Ihre Regex `/\.​?$/` kennt nur „.“, und sie wirkt auf beide Sätze (`:50`, `:53`).
+- **Steps to Reproduce:**
+  1. Einen Träger „Lern!“ (oder „Wer lernt?“ bzw. „Akademie…“) registrieren; die Namensregel erlaubt das (2 bis 100 Zeichen).
+  2. Eine Lizenz zuweisen.
+  3. Erwartet: „Bei Fragen wenden Sie sich an Lern!“
+  4. Tatsächlich, per Render von HEAD in Text- und HTML-Fassung: „Bei Fragen wenden Sie sich an Lern!.“ und am Ende des Datenschutzhinweises „… richten Sie bitte an Lern!.“ (Prüfer und `/qa`-Sitzung unabhängig).
+
 ## Beobachtungen (kein Bug, zur Kenntnis)
 
-- **O-1, Fehlversuche ungebremst:** Fehlgeschlagene Versuche zählen für keine Grenze (Spec-Entscheidung), und `sendInvitation` hat keine eigene Drossel.
-  - Lehnt Mailjet ab (401/403) oder antwortet nicht in 10 s, geht jeder Klick ungebremst als API-Aufruf an Mailjet.
-  - Antwortet Mailjet zu spät, nimmt aber an (EC-4), gehen Mails hinaus, die nicht zählen.
-  - Das ist durch Spec und Design so gewollt; als Risiko vor dem Live-Gang notiert.
-- **O-2, Turnstile mit Testschlüsseln (PROJ-1, Umgebung):** Die lokale Umgebung nutzt Cloudflares „always pass“-Schlüssel (`1x0000…`), der Dummy-Token wird angenommen. Damit bremst nur die IP-Registrierungsbremse neue Träger, und jeder neue Träger darf 30 Einladungen am Tag senden. Für den lokalen Prüfbetrieb vertretbar; echte Schlüssel sind Teil der go-live-Aufgaben von PROJ-1.
-- **O-3, Bremszeilen aus dem Suite-Lauf:** Die Datenbanktests lassen wie in PROJ-2 (O-7) ihre Login- und Registrierungsversuche liegen (`lizenzzentrale-test-*@example.com`, IPs `2001:db8:*`). Der 24-Stunden-Job löscht sie. Nur Test-Hygiene.
-- **O-4, Zeitpunkt „ab“ mit laufender Reservierung:** Ist die älteste gezählte Versendung eine laufende `pending`, nennt `available_from` deren Start plus 24 h. Scheitert dieser Versuch, wäre die Grenze früher frei. Der genannte Zeitpunkt ist nie zu früh, höchstens zu spät.
-- **O-5, Abschluss scheitert nach Annahme:** Dann zählt die Mail für keine Grenze. Das nimmt das Design in Kauf; von außen ist es nicht auslösbar.
-- **O-6, Hinweis bei frischem Besuch (PROJ-1, nicht geprüft):** Anonym leitet `/licenses` auf `/login?reason=session` um, vermutlich mit „Bitte melden Sie sich erneut an.“, obwohl nie eine Sitzung bestand. Das ist kein Verhalten aus dem PROJ-3-Diff; den Text hat niemand abgerufen.
-- **O-7, Aufbewahrung bei Mailjet:** Mailjet legt jeden Empfänger als Kontakt an und löscht nicht von selbst. Der Datenschutzhinweis (AC-10) sagt nur, was die Lizenzzentrale speichert. Die Löschregel ist T21 (go-live) und eine offene Frage in `spec.md`.
+- [=] **O-1 bis O-7** aus dem ersten Lauf gelten unverändert: Fehlversuche ungebremst (O-1), Turnstile mit Testschlüsseln (O-2), Bremszeilen aus dem Suite-Lauf (O-3), Zeitpunkt „ab“ mit laufender Reservierung (O-4), Abschluss scheitert nach Annahme (O-5), Hinweis bei frischem Besuch (O-6), Aufbewahrung bei Mailjet (O-7). Ihr Code ist nicht in der Diff. Den Wortlaut enthält der Bericht in Commit `024a0a2`.
+- **O-8, Trägername in App und Datenbank verschieden normalisiert (PROJ-1, nicht geprüft):** Die App entfernt Leerraum am Rand mit JS `trim()` (alle Leerräume, aber nicht U+200B). Regel und Trigger der Datenbank nutzen `btrim` und entfernen nur Leerzeichen (`20261021120000_proj1_training_providers.sql:21,88`). Ein Name mit NBSP, Tabulator oder Zeilenumbruch am Ende würde in der Mail „e.V. .“ ergeben. Über das Formular ist das nicht erreichbar. Ob es einen Weg am Formular vorbei gibt (direkte Registrierung bei Supabase Auth, die Tabellenansicht des Anbieters), hat niemand geprüft. Das gehört zu PROJ-1.
 
 ## Zusammenfassung
-- **Akzeptanzkriterien:** 12 von 12 erfüllt, alle gegen die laufende App ausgeübt; AC-1, AC-2, AC-5, AC-10 und AC-11 zusätzlich mit echter Mail, die der Nutzer abgenommen hat.
-  - An AC-2 und AC-10 hängt der kosmetische BUG-2, an AC-4 BUG-3.
-  - Nicht geprüft: die Browser-Teile von AC-1, AC-3, AC-4 und AC-5.
-- **Edge Cases:** 11 von 12 ohne Befund. An EC-7 hängt BUG-1 (Low), an EC-9 BUG-4 (Low).
-  - Nicht geprüft: die Laufzeit-Teile von EC-4 und EC-10 und das fehlende Linkziel bei EC-9.
-- **Bugs:** 4 insgesamt (0 Critical, 0 High, 0 Medium, 4 Low). Open: 1 (BUG-2, auf Wunsch des Nutzers jetzt zu beheben), Deferred: 3 (BUG-1, BUG-3, BUG-4).
-- **Security:** 13 von 17 Prüfpunkten geprüft, davon einer mit Low-Bug (BUG-1). 4 sind NOT VERIFIED: Rate limiting (nicht implementiert), Brute Force (nicht anwendbar), Supabase-Protokolle (nicht einsehbar), Header gegen eine Live-URL (kein Deployment).
-- **Regression:** PROJ-1 und PROJ-2 ohne Regression, Suite 855/855.
-- **Production Ready:** JA. Es gibt keinen Critical- oder High-Bug, und alle Akzeptanzkriterien wurden gegen die laufende App ausgeübt, die Einladung auch als echte Mail.
-- **Status:** bleibt **In Review**, weil BUG-2 offen ist.
-- **Empfehlung:** BUG-2 mit `/build PROJ-3` beheben, nach seiner Klasse, also an beiden Stellen aus dem Sweep. Danach `/qa` als Nachprüfung in der Breite der Diff. BUG-1, BUG-3 und BUG-4 später gesammelt mit `/build PROJ-3 deferred`.
+- **Art des Laufs:** Nachprüfung in der Breite der Diff `024a0a2..HEAD`, eine Produktionsdatei.
+- **Akzeptanzkriterien:** 12 von 12 erfüllt.
+  - In diesem Lauf erneut geprüft: AC-2, AC-10, AC-11 (Render und Laufzeitweg), dazu Teile von AC-3, AC-5 und AC-12 über die Regression.
+  - Die übrigen sind `[=]` vom 2026-11-01, ihr Code ist unverändert.
+  - Nicht geprüft: die Browser-Teile von AC-1, AC-3, AC-4 und AC-5 und die echte Mail mit dem Fix.
+- **Edge Cases:** EC-7 und EC-9 erneut geprüft, die übrigen `[=]`. An EC-7 hängt weiter BUG-1, an EC-9 weiter BUG-4, beide Deferred.
+- **Bugs:** 5 insgesamt (0 Critical, 0 High, 0 Medium, 5 Low).
+  - Fixed: 1 (BUG-2, nachgeprüft).
+  - Deferred: 4 (BUG-1, BUG-3, BUG-4 und neu BUG-5).
+  - Open: 0.
+- **Security:** 17 Prüfpunkte. 7 in diesem Lauf geprüft, davon einer mit dem bekannten BUG-1. 6 übernommen (`[=]`). 4 NOT VERIFIED: Rate limiting (nicht implementiert), Brute Force (nicht anwendbar), Supabase-Protokolle (nicht einsehbar), Header gegen eine Live-URL (kein Deployment).
+- **Regression:** Suite 864/864, Laufzeitweg der geänderten Datei ohne Fehler, kein deploytes Feature betroffen.
+- **Production Ready:** JA. Es gibt keinen Critical- oder High-Bug und keinen offenen Bug. Alle Akzeptanzkriterien wurden gegen die laufende App ausgeübt, die Einladung im ersten Lauf auch als echte Mail.
+- **Status:** **Approved**.
+- **Empfehlung:** BUG-1, BUG-3, BUG-4 und BUG-5 später gesammelt mit `/build PROJ-3 deferred` beheben. BUG-1 und BUG-5 liegen beide in `atSentenceEnd` bzw. `plainName` und passen in einen Durchgang.
 
 > „Production Ready: JA“ heißt *keine Critical/High-Bugs*. Es heißt **nicht**, dass alles geprüft wurde. Die Punkte unter „Nicht geprüft in diesem Lauf“ sind offen und brauchen einen Menschen oder `/e2e-tests`.
