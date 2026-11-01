@@ -43,12 +43,14 @@ const SIGNATURE = 'Ihre Lizenzzentrale'
 const FALLBACK_HINT = 'Falls der Knopf nicht funktioniert, öffnen Sie diese Adresse:'
 
 // The name passed to these is already prepared for the version it goes into.
+/** The name closing a sentence: a name ending in a full stop (e.V., U+200B after it) needs no second one. */
+const atSentenceEnd = (name: string) => (/\.\u200B?$/.test(name) ? name : `${name}.`)
 const unlockedText = (name: string) =>
   `${name} hat Ihnen eine Lizenz für den Kurs „Geprüfter Technischer Betriebswirt (IHK)“ auf der Lernplattform freigeschaltet.`
-const questionsText = (name: string) => `Bei Fragen wenden Sie sich an ${name}.`
+const questionsText = (name: string) => `Bei Fragen wenden Sie sich an ${atSentenceEnd(name)}`
 /** The privacy note of AC-10 word for word, with the name at all three places (Art. 14 GDPR). */
 const privacyNote = (name: string) =>
-  `${name} hat Ihre E-Mail-Adresse in der Lizenzzentrale eingetragen, um Ihnen diese Lizenz zuzuordnen. Gespeichert werden nur Ihre E-Mail-Adresse, der Zeitpunkt der Zuweisung und der Versandstand dieser Einladung, bis ${name} die Lizenz entzieht. Fragen dazu richten Sie bitte an ${name}.`
+  `${name} hat Ihre E-Mail-Adresse in der Lizenzzentrale eingetragen, um Ihnen diese Lizenz zuzuordnen. Gespeichert werden nur Ihre E-Mail-Adresse, der Zeitpunkt der Zuweisung und der Versandstand dieser Einladung, bis ${name} die Lizenz entzieht. Fragen dazu richten Sie bitte an ${atSentenceEnd(name)}`
 
 // --- The training provider's name as plain text (EC-7) ----------------------------------------
 

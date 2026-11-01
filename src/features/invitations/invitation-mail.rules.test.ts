@@ -285,6 +285,33 @@ describe('Trägername als reiner Text (EC-7)', () => {
   })
 })
 
+describe('Tr\u00e4gername am Satzende (AC-2, AC-10)', () => {
+  // \u201ee.V.\u201c as prepared for the mail: U+200B after every ".".
+  const NAME_WITH_STOP = `Bildungswerk e.${ZWSP}V.${ZWSP}`
+
+  it('ein Schlusspunkt im Namen beendet den Satz, es folgt kein zweiter Punkt', () => {
+    const { text, html } = buildInvitationMail('Bildungswerk e.V.', PLATFORM_URL)
+    const htmlParagraphs = paragraphs(html)
+
+    expect(text.split('\n\n')[4]).toBe(`Bei Fragen wenden Sie sich an ${NAME_WITH_STOP}`)
+    expect(text.endsWith(`Fragen dazu richten Sie bitte an ${NAME_WITH_STOP}`)).toBe(true)
+    expect(htmlParagraphs[5].content).toBe(`Bei Fragen wenden Sie sich an ${NAME_WITH_STOP}`)
+    expect(htmlParagraphs.at(-1)?.content.endsWith(`Fragen dazu richten Sie bitte an ${NAME_WITH_STOP}`)).toBe(true)
+    // The name keeps all five places, and nowhere do two stops meet.
+    expect(count(text, NAME_WITH_STOP)).toBe(5)
+    expect(count(html, NAME_WITH_STOP)).toBe(5)
+    expect(text.replaceAll(ZWSP, '')).not.toContain('..')
+    expect(stripTags(html).replaceAll(ZWSP, '')).not.toContain('..')
+  })
+
+  it('ein Punkt mitten im Namen l\u00e4sst den Schlusspunkt stehen', () => {
+    const { text } = buildInvitationMail('Bildungswerk e.V. Nord', PLATFORM_URL)
+
+    expect(text.split('\n\n')[4]).toBe(`Bei Fragen wenden Sie sich an ${NAME_WITH_STOP} Nord.`)
+    expect(text.endsWith(`Fragen dazu richten Sie bitte an ${NAME_WITH_STOP} Nord.`)).toBe(true)
+  })
+})
+
 describe('platformUrlFrom (EC-9)', () => {
   it.each([
     ['https://lernen.example.org/kurs/tbw', 'https://lernen.example.org/kurs/tbw'],

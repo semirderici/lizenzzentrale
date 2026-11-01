@@ -478,6 +478,7 @@ Alle Punkte aus „Für `/build`, am gehosteten Projekt per Test bestätigen“ 
 7. **`deliverInvitation` schließt einen reservierten Versand immer ab, auch nach einer Ausnahme**, dann mit „nicht angenommen“. Im Design stand das nur für ein ungültiges Linkziel. Bei einer unerwarteten Ausnahme schreibt es genau eine feste Zeile auf die Server-Konsole: „Einladung: unerwarteter Fehler beim Versand“, ohne Fehlerdetails, ohne Adresse und ohne Namen.
 8. **Das Badge hat `rounded-md` statt `rounded-full`.** Grund ist `docs/design-system.md` → Radius: Das gilt auch für Badges, nur Avatare sind rund. Geändert ist es nur hier, nicht in `src/components/ui/badge.tsx`.
 9. **Die Kartenzeile „Einladung:“ ist ein `div`, kein `p`.** Das Badge rendert ein `div`, und ein `div` in einem `p` bricht die Hydration. Ein Test schließt diese Verschachtelung aus.
+10. **Endet der Trägername auf einen Punkt (z. B. „e.V.“), folgt am Satzende kein zweiter.** Das gilt für „Bei Fragen wenden Sie sich an <Trägername>.“ und für den letzten Satz des Datenschutzhinweises (BUG-2 aus `qa-report.md`). Mitten im Satz bleibt der Name unverändert.
 
 ### Entscheidungen in der Datenbank, die das Design offen ließ
 
