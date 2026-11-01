@@ -153,9 +153,13 @@ export function sendButtonLabel(action: 'send' | 'resend'): string {
   return action === 'send' ? INVITATION_MESSAGES.send : INVITATION_MESSAGES.resend
 }
 
-/** The screen-reader name of the button, with the address (design.md → Knopf). */
+/**
+ * The screen-reader name of the button, with the address (design.md → Knopf). It contains the
+ * visible text as one piece, so voice control finds the button by it (WCAG 2.5.3, design.md →
+ * Abweichung 11).
+ */
 export function sendButtonAccessibleLabel(action: 'send' | 'resend', email: string): string {
-  return action === 'send' ? `Einladung an ${email} senden` : `Einladung an ${email} erneut senden`
+  return action === 'send' ? `Einladung senden an ${email}` : `Einladung an ${email} erneut senden`
 }
 
 /** The toast after "Senden" / "Erneut senden": success or error (design.md → "Darstellung der Ergebnisse"). */

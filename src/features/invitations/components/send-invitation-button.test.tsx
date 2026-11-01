@@ -15,7 +15,7 @@ const AVAILABLE_FROM = '2026-10-28T13:11:56.123Z'
 const TEXT = {
   send: 'Einladung senden',
   resend: 'Erneut senden',
-  sendName: `Einladung an ${EMAIL} senden`,
+  sendName: `Einladung senden an ${EMAIL}`,
   resendName: `Einladung an ${EMAIL} erneut senden`,
   sent: 'Einladung versendet',
   sendFailed: 'Die Einladung konnte nicht versendet werden. Bitte versuchen Sie es später erneut.',
