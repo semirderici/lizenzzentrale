@@ -27,7 +27,7 @@
 |----|---------|-------------|--------|------|---------|
 | PROJ-1 | Konto & Login | Verwalter registrieren ihren Bildungsträger mit E-Mail und Passwort, melden sich an und ab, sehen nur die Daten ihres eigenen Trägers und starten mit 5 Lizenzen. | Approved | [PROJ-1-account-login/](PROJ-1-account-login/) | 2026-10-21 |
 | PROJ-2 | Lizenzverwaltung | Verwalter sehen ihr Kontingent, weisen Teilnehmern per E-Mail-Adresse eine Lizenz zu und entziehen sie wieder, bei vollem Kontingent ist keine Zuweisung möglich. | Approved | [PROJ-2-license-management/](PROJ-2-license-management/) | 2026-10-21 |
-| PROJ-3 | Einladungs-E-Mail | Bei jeder Zuweisung bekommt der Teilnehmer automatisch eine Einladung über einen externen E-Mail-Dienst, der Versandstatus ist pro Lizenz sichtbar. | In Progress | [PROJ-3-invitation-email/](PROJ-3-invitation-email/) | 2026-10-21 |
+| PROJ-3 | Einladungs-E-Mail | Bei jeder Zuweisung bekommt der Teilnehmer automatisch eine Einladung über einen externen E-Mail-Dienst, der Versandstatus ist pro Lizenz sichtbar. | In Review | [PROJ-3-invitation-email/](PROJ-3-invitation-email/) | 2026-10-21 |
 
 **Build order:** P0 (MVP): PROJ-1 → PROJ-2 (braucht PROJ-1) → PROJ-3 (braucht PROJ-2)
 

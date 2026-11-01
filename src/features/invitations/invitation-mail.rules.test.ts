@@ -261,6 +261,28 @@ describe('Trägername als reiner Text (EC-7)', () => {
     expect(count(text, name)).toBe(5)
     expect(count(html, name)).toBe(5)
   })
+
+  // Added by /qa: every separator and control character besides \r\n (design.md → Umsetzungsnotizen,
+  // Abweichung 2). Mail clients break a line at U+2028, U+2029 and NEL as they do at \n.
+  it.each([
+    ['Zeilentrenner U+2028', 'Institut\u2028Nord'],
+    ['Absatztrenner U+2029', 'Institut\u2029Nord'],
+    ['NEL U+0085', 'Institut\u0085Nord'],
+    ['Tabulator', 'Institut\tNord'],
+    ['Seitenvorschub', 'Institut\fNord'],
+    ['NUL', 'Institut\u0000Nord'],
+    ['mehrere hintereinander', 'Institut\t\u2028\u0000\u2029Nord'],
+  ])('%s im Namen wird zu genau einem Leerzeichen, der Name bleibt eine Zeile (AC-2, EC-7)', (_case, name) => {
+    const { text, html } = buildInvitationMail(name, PLATFORM_URL)
+
+    expect(text.split('\n\n')).toHaveLength(7)
+    expect(text.split('\n\n')[4]).toBe('Bei Fragen wenden Sie sich an Institut Nord.')
+    expect(count(text, 'Institut Nord')).toBe(5)
+    expect(count(html, 'Institut Nord')).toBe(5)
+    // Neither version keeps any of the characters, not even in the HTML source.
+    expect(text).not.toMatch(/[\t\f\u0000\u0085\u2028\u2029]/)
+    expect(html).not.toMatch(/[\t\f\u0000\u0085\u2028\u2029]/)
+  })
 })
 
 describe('platformUrlFrom (EC-9)', () => {
