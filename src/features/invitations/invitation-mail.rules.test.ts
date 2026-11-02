@@ -283,6 +283,31 @@ describe('Trägername als reiner Text (EC-7)', () => {
     expect(text).not.toMatch(/[\t\f\u0000\u0085\u2028\u2029]/)
     expect(html).not.toMatch(/[\t\f\u0000\u0085\u2028\u2029]/)
   })
+
+  // BUG-1: format and bidi characters (\p{Cf}) are formatting as well; a direction override would
+  // show the rest of the name mirrored. name \u2192 how it must appear in both versions.
+  it.each([
+    ['Richtungsumkehr U+202E bis U+202C', 'Institut \u202eNord\u202c', 'Institut Nord'],
+    ['Isolate U+2066 bis U+2069', '\u2066Institut\u2069 \u2067\u2068Nord\u2069\u2069', 'Institut Nord'],
+    ['Richtungsmarken U+200E und U+200F', 'Institut\u200e \u200fNord', 'Institut Nord'],
+    ['nullbreites Leerzeichen U+200B', 'Insti\u200btut Nord', 'Institut Nord'],
+    ['weicher Trennstrich U+00AD', 'Insti\u00adtut Nord', 'Institut Nord'],
+    ['Byte Order Mark U+FEFF', '\ufeffInstitut Nord', 'Institut Nord'],
+    ['U+200B nach dem Schlusspunkt', 'Werk e.V.\u200b', `Werk e.${ZWSP}V.${ZWSP}`],
+    ['U+202C nach dem Schlusspunkt', 'Werk e.V.\u202c', `Werk e.${ZWSP}V.${ZWSP}`],
+  ])('%s im Namen erreicht keine der beiden Fassungen (EC-7)', (_case, name, shown) => {
+    const { text, html } = buildInvitationMail(name, PLATFORM_URL)
+    // Only the U+200B the module itself puts after ".", "@", ":" and "/" may remain.
+    const withoutOwnBreaks = (version: string) => version.replace(/(?<=[.@:/])\u200b/g, '')
+
+    expect(count(text, shown)).toBe(5)
+    expect(count(html, shown)).toBe(5)
+    expect(withoutOwnBreaks(text)).not.toMatch(/\p{Cf}/u)
+    expect(withoutOwnBreaks(html)).not.toMatch(/\p{Cf}/u)
+    // A name ending in "e.V." still closes the sentence on its own.
+    expect(withoutOwnBreaks(text)).not.toContain('..')
+    expect(stripTags(withoutOwnBreaks(html))).not.toContain('..')
+  })
 })
 
 describe('Tr\u00e4gername am Satzende (AC-2, AC-10)', () => {
@@ -309,6 +334,17 @@ describe('Tr\u00e4gername am Satzende (AC-2, AC-10)', () => {
 
     expect(text.split('\n\n')[4]).toBe(`Bei Fragen wenden Sie sich an ${NAME_WITH_STOP} Nord.`)
     expect(text.endsWith(`Fragen dazu richten Sie bitte an ${NAME_WITH_STOP} Nord.`)).toBe(true)
+  })
+
+  // BUG-5: "!", "?" and "…" end a German sentence as well, no stop follows them.
+  it.each([['Lern!'], ['Wer lernt?'], ['Akademie…']])('%s beendet den Satz selbst, es folgt kein Punkt', (name) => {
+    const { text, html } = buildInvitationMail(name, PLATFORM_URL)
+    const htmlParagraphs = paragraphs(html)
+
+    expect(text.split('\n\n')[4]).toBe(`Bei Fragen wenden Sie sich an ${name}`)
+    expect(text.endsWith(`Fragen dazu richten Sie bitte an ${name}`)).toBe(true)
+    expect(htmlParagraphs[5].content).toBe(`Bei Fragen wenden Sie sich an ${name}`)
+    expect(htmlParagraphs.at(-1)?.content.endsWith(`Fragen dazu richten Sie bitte an ${name}`)).toBe(true)
   })
 })
 

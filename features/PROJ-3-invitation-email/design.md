@@ -479,6 +479,7 @@ Alle Punkte aus „Für `/build`, am gehosteten Projekt per Test bestätigen“ 
 8. **Das Badge hat `rounded-md` statt `rounded-full`.** Grund ist `docs/design-system.md` → Radius: Das gilt auch für Badges, nur Avatare sind rund. Geändert ist es nur hier, nicht in `src/components/ui/badge.tsx`.
 9. **Die Kartenzeile „Einladung:“ ist ein `div`, kein `p`.** Das Badge rendert ein `div`, und ein `div` in einem `p` bricht die Hydration. Ein Test schließt diese Verschachtelung aus.
 10. **Endet der Trägername auf einen Punkt (z. B. „e.V.“), folgt am Satzende kein zweiter.** Das gilt für „Bei Fragen wenden Sie sich an <Trägername>.“ und für den letzten Satz des Datenschutzhinweises (BUG-2 aus `qa-report.md`). Mitten im Satz bleibt der Name unverändert.
+11. **Der Screenreader-Name von „Einladung senden“ lautet „Einladung senden an <Adresse>“** statt „Einladung an <Adresse> senden“ (oben unter „Knopf“ und „Meldungstexte“). So steht der sichtbare Text zusammenhängend im Namen, und wer den Knopf per Sprachsteuerung mit „Einladung senden“ anspricht, trifft ihn (WCAG 2.5.3 „Label in Name“, BUG-3 aus `qa-report.md`). „Einladung an <Adresse> erneut senden“ bleibt, denn es enthält den sichtbaren Text „Erneut senden“ schon.
 
 ### Entscheidungen in der Datenbank, die das Design offen ließ
 
@@ -489,5 +490,5 @@ Alle Punkte aus „Für `/build`, am gehosteten Projekt per Test bestätigen“ 
 
 ### Hinweise für `/qa`
 
-- **WCAG 2.5.3 („Label in Name“):** Der Screenreader-Name „Einladung an <Adresse> senden“ enthält den sichtbaren Text „Einladung senden“ nicht zusammenhängend. Bei „Erneut senden“ ist der sichtbare Text bis auf die Großschreibung enthalten. Die Texte stammen so aus dem Design. Ob das ein Befund ist, entscheidet `/qa`.
+- **WCAG 2.5.3 („Label in Name“):** Mit BUG-3 behoben, siehe Abweichung 11. Beide Screenreader-Namen enthalten jetzt den sichtbaren Text zusammenhängend, bei „Erneut senden“ bis auf die Großschreibung.
 - **Arbeitskopien der Subagenten:** Solange sie unter `.claude/worktrees/` liegen, sammelt Vitest deren Testdateien mit ein. Einzelläufe deshalb mit `--exclude '.claude/**'` starten. Beim Abschluss von `/build` waren alle Arbeitskopien entfernt.

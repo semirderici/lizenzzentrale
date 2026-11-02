@@ -4,9 +4,9 @@ import 'server-only'
 // has run. Deliberately not a 'use server' file: every export there could be called from the
 // browser and would trust the training-provider id sent along.
 //
-// Never throws: every error ends in "failed". An unexpected exception leaves one fixed line on
-// the server console — never the error, an address or a name (PROJ-2 QA, O-1). Mailjet's own
-// failures are logged by mailjet.integration.ts.
+// Never throws: every error ends in "failed". An unexpected exception or a missing or invalid
+// platform link leaves one fixed line on the server console — never the error, a value, an
+// address or a name (PROJ-2 QA, O-1). Mailjet's own failures are logged by mailjet.integration.ts.
 import { buildInvitationMail, platformUrlFrom } from './invitation-mail.rules'
 import { beginInvitation, finishInvitation } from './invitations.data'
 import type { DeliveryOutcome } from './invitations.rules'
@@ -16,6 +16,7 @@ import { sendMail } from './mailjet.integration'
 type TrainingProvider = { id: string; name: string }
 
 const UNEXPECTED_ERROR = 'Einladung: unerwarteter Fehler beim Versand'
+const INVALID_PLATFORM_URL = 'Einladung: Linkziel nicht eingestellt oder ungültig (LEARNING_PLATFORM_URL)'
 
 /** Versandausgang for this licence (AC-1 to AC-3, AC-5, AC-7, AC-8, EC-1 to EC-5, EC-8, EC-9). */
 export async function deliverInvitation(
@@ -44,7 +45,10 @@ export async function deliverInvitation(
     try {
       // Read on every call, so the app starts without it (EC-9).
       const platformUrl = platformUrlFrom(process.env.LEARNING_PLATFORM_URL)
-      if (platformUrl !== null) {
+      if (platformUrl === null) {
+        // The cause without the value, so a typo in the setup shows (design.md → Technische Entscheidungen).
+        console.error(INVALID_PLATFORM_URL)
+      } else {
         const mail = buildInvitationMail(trainingProvider.name, platformUrl)
         // Exactly the address the database function returned (EC-8).
         const verdict = await sendMail({ to: begun.email, subject: mail.subject, text: mail.text, html: mail.html })

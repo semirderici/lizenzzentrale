@@ -35,6 +35,7 @@ const SEND_ID = 4711
 const EMAIL = 'Vorname.Nachname+kurs@Mail.Sub.Example.com'
 const PLATFORM_URL = 'https://lernen.example.org/kurs/technischer-betriebswirt'
 const UNEXPECTED_ERROR = 'Einladung: unerwarteter Fehler beim Versand'
+const INVALID_PLATFORM_URL = 'Einladung: Linkziel nicht eingestellt oder ungültig (LEARNING_PLATFORM_URL)'
 
 const ALLOWED: BeginInvitationResult = { status: 'allowed', sendId: SEND_ID, email: EMAIL }
 
@@ -161,7 +162,9 @@ describe('deliverInvitation', () => {
     expect(beginInvitation).toHaveBeenCalledTimes(1)
     expect(sendMail).not.toHaveBeenCalled()
     expect(finishInvitation.mock.calls).toStrictEqual([[SEND_ID, false]])
-    expectNoConsoleOutput()
+    // BUG-4: one fixed line names the cause, never the value (design.md → Technische Entscheidungen).
+    expect(consoleSpies.error.mock.calls).toStrictEqual([[INVALID_PLATFORM_URL]])
+    expect(consoleOutput()).toStrictEqual([INVALID_PLATFORM_URL])
   })
 
   it('liest das Linkziel bei jedem Aufruf, nicht beim Laden des Moduls', async () => {

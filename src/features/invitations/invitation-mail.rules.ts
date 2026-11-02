@@ -43,8 +43,11 @@ const SIGNATURE = 'Ihre Lizenzzentrale'
 const FALLBACK_HINT = 'Falls der Knopf nicht funktioniert, öffnen Sie diese Adresse:'
 
 // The name passed to these is already prepared for the version it goes into.
-/** The name closing a sentence: a name ending in a full stop (e.V., U+200B after it) needs no second one. */
-const atSentenceEnd = (name: string) => (/\.\u200B?$/.test(name) ? name : `${name}.`)
+/**
+ * The name closing a sentence: a name ending in a full stop (e.V., U+200B after it), "!", "?" or
+ * "\u2026" ends the sentence itself and needs no stop after it.
+ */
+const atSentenceEnd = (name: string) => (/[.!?\u2026]\u200B?$/.test(name) ? name : `${name}.`)
 const unlockedText = (name: string) =>
   `${name} hat Ihnen eine Lizenz für den Kurs „Geprüfter Technischer Betriebswirt (IHK)“ auf der Lernplattform freigeschaltet.`
 const questionsText = (name: string) => `Bei Fragen wenden Sie sich an ${atSentenceEnd(name)}`
@@ -57,13 +60,15 @@ const privacyNote = (name: string) =>
 const ZERO_WIDTH_SPACE = '\u200B'
 
 /**
- * The name as one line of plain text that no mail client turns into a link: control characters
- * and line or paragraph separators become a space (a name must not start a paragraph of its own,
- * AC-2), and a zero-width space follows every ".", "@", ":" and "/", which breaks the patterns
- * of automatic linking (www.…, …@…, https://…).
+ * The name as one line of plain text that no mail client turns into a link: format characters
+ * (direction overrides and isolates, zero-width characters, soft hyphens) are removed, since they
+ * are formatting too (EC-7); control characters and line or paragraph separators become a space
+ * (a name must not start a paragraph of its own, AC-2); and a zero-width space follows every ".",
+ * "@", ":" and "/", which breaks the patterns of automatic linking (www.…, …@…, https://…).
  */
 function plainName(name: string): string {
   return name
+    .replace(/\p{Cf}/gu, '')
     .replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, ' ')
     .replace(/[.@:/]/g, (char) => char + ZERO_WIDTH_SPACE)
 }

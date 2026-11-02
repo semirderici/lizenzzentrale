@@ -37,6 +37,6 @@
 
 > One line per release, written by `/deploy` — **the single deployment record**: tag · date · production URL · the features it shipped. `/security-check` reads the production URL here, `/audit` expects every Deployed feature on one line. A feature that was live before the kit arrived (reconstructed from code) gets its line from `/qa`: `live before the kit — verified by /qa on <date> · PROJ-X`.
 
-- _v1.0.0 · 2026-01-31 · https://app.example.com · PROJ-1, PROJ-2_
+- Noch nichts deployt (laut PRD kein Deployment vorgesehen)
 
 ## Next Available ID: PROJ-4

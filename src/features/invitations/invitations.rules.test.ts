@@ -172,13 +172,16 @@ describe('Texte mit Zeitpunkt und Knöpfe', () => {
     expect(sendButtonLabel('resend')).toBe('Erneut senden')
   })
 
-  it('der Name für den Screenreader nennt die Adresse (AC-4, AC-6)', () => {
+  it('der Name für den Screenreader nennt die Adresse und enthält den sichtbaren Text zusammenhängend (AC-4, AC-6, WCAG 2.5.3)', () => {
     expect(sendButtonAccessibleLabel('send', 'vorname.nachname+kurs@example.com')).toBe(
-      'Einladung an vorname.nachname+kurs@example.com senden',
+      'Einladung senden an vorname.nachname+kurs@example.com',
     )
     expect(sendButtonAccessibleLabel('resend', 'vorname.nachname+kurs@example.com')).toBe(
       'Einladung an vorname.nachname+kurs@example.com erneut senden',
     )
+    // Voice control matches the visible text, so it has to stand in the name as one piece (BUG-3).
+    expect(sendButtonAccessibleLabel('send', 'a@example.com')).toContain('Einladung senden')
+    expect(sendButtonAccessibleLabel('resend', 'a@example.com').toLowerCase()).toContain('erneut senden')
   })
 })
 
