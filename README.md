@@ -119,6 +119,11 @@ Ohne diesen Schritt startet die App trotzdem. Lizenzen lassen sich zuweisen, die
 
 Weitere Abläufe wie Login-Sperre und Versandgrenzen beschreiben die Akzeptanzkriterien in den `spec.md` der Features.
 
+## Hinweise zum Testen der Einladungs-E-Mail
+
+- **Linkziel:** Der Knopf „Zur Lernplattform“ und der Textlink darunter zeigen auf den Wert von `LEARNING_PLATFORM_URL`. Eine Lernplattform gehört nicht zu diesem Projekt. Mit dem Beispielwert `http://localhost:3000/` öffnet der Link daher die Lizenzzentrale selbst. Für einen Test kann der Wert auf eine beliebige Adresse zeigen.
+- **Spam-Ordner:** Ohne eigene Absenderdomain, die bei Mailjet mit SPF und DKIM eingerichtet ist, können Einladungen beim Empfänger im Spam-Ordner landen.
+
 ## Tests und `npm run check`
 
 ```bash
