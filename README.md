@@ -1,41 +1,56 @@
 # Lizenzzentrale
 
-Die Lizenzzentrale ist ein Self-Service-Portal für Bildungsträger, die Lizenzkontingente für die E-Learning-Plattform zur IHK-Weiterbildung „Geprüfter Technischer Betriebswirt“ gekauft haben. Ein Verwalter des Trägers sieht dort, wie viele Lizenzen vergeben und frei sind, und weist Teilnehmern selbst eine Lizenz zu oder entzieht sie wieder.
+Self-Service-Portal für Bildungsträger, die Lizenzen für die E-Learning-Plattform zur IHK-Weiterbildung „Geprüfter Technischer Betriebswirt“ gekauft haben. Ein Verwalter sieht, wie viele Lizenzen vergeben und frei sind. Er weist Teilnehmern selbst eine Lizenz zu und entzieht sie wieder. Jeder Teilnehmer bekommt automatisch eine Einladung per E-Mail.
 
-Diese Anleitung richtet die drei Features ein: Konto & Login (PROJ-1), Lizenzverwaltung (PROJ-2) und Einladungs-E-Mail (PROJ-3). Supabase und die Bot-Prüfung braucht die App zum Starten, den E-Mail-Dienst Mailjet erst für die Einladungen. Den Stand jedes Features zeigt [`features/INDEX.md`](features/INDEX.md).
+Abschlussprojekt im AI Engineering Accelerator, entwickelt mit dem AI Engineering Kit (spezifikationsgetriebener Ablauf, siehe [Spezifikationen und QA-Berichte](#spezifikationen-und-qa-berichte)).
 
-## Supabase und Bot-Prüfung einrichten
+## Die drei Features
 
-Die App läuft nur lokal (`npm run dev`) gegen genau ein gehostetes Supabase-Projekt im kostenlosen Tarif. Docker wird nicht gebraucht, ein Deployment gibt es nicht. Die Bot-Prüfung ist Cloudflare Turnstile mit Cloudflares öffentlichen Testschlüsseln.
+| ID | Feature | Was es tut | Status |
+|---|---|---|---|
+| PROJ-1 | Konto & Login | Registrierung des Bildungsträgers mit E-Mail und Passwort, Anmelden, Abmelden, Bot-Prüfung und Login-Sperre. Jeder Verwalter sieht nur die Daten seines eigenen Trägers. Jeder Träger startet mit 5 Lizenzen. | Approved |
+| PROJ-2 | Lizenzverwaltung | Kontingent sehen, Lizenzen per E-Mail-Adresse zuweisen und entziehen. Bei vollem Kontingent ist keine Zuweisung möglich. Das prüft auch die Datenbank. | Approved |
+| PROJ-3 | Einladungs-E-Mail | Bei jeder Zuweisung geht eine Einladung über Mailjet hinaus. Der Versandstatus steht pro Lizenz in der Liste, die Einladung lässt sich erneut senden. | Approved |
+
+Technik: Next.js 16 (App Router, TypeScript), Tailwind CSS und shadcn/ui, Supabase (PostgreSQL und Auth) mit Row Level Security, Cloudflare Turnstile, Mailjet.
+
+## Lokal starten
+
+Die App läuft nur lokal, gegen ein eigenes gehostetes Supabase-Projekt im kostenlosen Tarif. Docker ist nicht nötig.
 
 ### 1. Voraussetzungen
 
-- Node.js (LTS) mit npm
-- Supabase CLI: `brew install supabase/tap/supabase`, oder ohne Installation über `npx supabase` (dann jedem `supabase`-Befehl unten `npx` voranstellen)
+- Node.js 20.9 oder neuer mit npm (verlangt von Next.js 16)
+- Supabase CLI: `brew install supabase/tap/supabase`, oder ohne Installation `npx supabase …`
 - ein kostenloses Konto bei [Supabase](https://supabase.com)
-- Ein Cloudflare-Konto ist nicht nötig, die Turnstile-Testschlüssel sind öffentlich.
+- für den Mailversand ein kostenloses Konto bei [Mailjet](https://www.mailjet.com), siehe [Schritt 7](#7-mailversand-einrichten-mailjet)
+- Ein Cloudflare-Konto ist nicht nötig. Die Bot-Prüfung läuft mit Cloudflares öffentlichen Testschlüsseln.
 
-### 2. Supabase-Projekt anlegen
+### 2. Installation
 
-1. Im Supabase-Dashboard ein neues Projekt anlegen, Region **eu-central-1 (Frankfurt)**. Die Region lässt sich später nicht ändern.
-2. Das Datenbank-Passwort aufbewahren. `supabase link` fragt in Schritt 5 danach.
-3. Die Project Ref notieren: der Teil `<ref>` in der Projekt-URL `https://<ref>.supabase.co`, auch zu finden unter Project Settings → General → „Project ID“.
+```bash
+git clone <Repository-URL> lizenzzentrale
+cd lizenzzentrale
+npm install
+```
 
-### 3. Einstellungen im Dashboard
+### 3. Supabase-Projekt anlegen und einstellen
 
-Alle Auth-Einstellungen kommen von Hand ins Dashboard. `supabase/config.toml` gilt nur für eine lokale Supabase-Instanz, die dieses Projekt nicht nutzt. **`supabase config push` nicht ausführen:** Es würde die lokalen Standardwerte aus `config.toml` ins Projekt schreiben.
+1. Im Supabase-Dashboard ein neues Projekt anlegen, Region **eu-central-1 (Frankfurt)**.
+2. Das Datenbank-Passwort aufbewahren. Schritt 5 fragt danach.
+3. Die Project Ref notieren: `<ref>` in `https://<ref>.supabase.co` (Project Settings → General → „Project ID“).
+4. Diese Einstellungen von Hand im Dashboard setzen:
 
-| Wo im Dashboard | Einstellung | Wert | Warum |
-|---|---|---|---|
-| Authentication → Sign In / Providers → Email | „Confirm email“ | **aus** | Das Konto ist nach der Registrierung sofort aktiv, und nur so meldet Supabase eine schon registrierte Adresse. |
-| Authentication → Sign In / Providers → Email (je nach Dashboard-Stand unter Attack Protection) | „Minimum password length“ | **8**, keine Pflicht zu bestimmten Zeichenarten | zweite Linie hinter der Passwortregel der App |
-| Authentication → Attack Protection | „Enable Captcha protection“ | **an**, Anbieter Cloudflare Turnstile, Secret `2x0000000000000000000000000000000AA` | Cloudflares Test-Secret, das **immer scheitert**, mit Absicht (siehe unten) |
-| Authentication → Audit Logs | „Write audit logs to the database“ | **aus** | Nach dem Löschen eines Kontos verweist keine Zeile in der Datenbank mehr darauf, und im Audit-Log der Datenbank liegen keine IP-Adressen. |
-| Integrations → Data API → Settings | „Automatically expose new tables“ (ältere Dashboards: „Default privileges for new entities“) | optional **aus** | Die Migrationen setzen alle Rechte ausdrücklich und funktionieren mit beiden Werten. Mit „aus“ fällt ein vergessenes Recht schon in den Tests auf. |
+| Wo im Dashboard | Einstellung | Wert |
+|---|---|---|
+| Authentication → Sign In / Providers → Email | „Confirm email“ | **aus**: Das Konto ist nach der Registrierung sofort aktiv. |
+| Authentication → Sign In / Providers → Email (je nach Stand unter Attack Protection) | „Minimum password length“ | **8**, ohne Pflicht zu bestimmten Zeichenarten |
+| Authentication → Attack Protection | „Enable Captcha protection“ | **an**, Anbieter Cloudflare Turnstile, Secret `2x0000000000000000000000000000000AA` |
+| Authentication → Audit Logs | „Write audit logs to the database“ | **aus** |
 
-**Warum ein CAPTCHA-Secret, das immer scheitert:** Die App prüft das Turnstile-Token selbst und ruft Supabase danach mit dem geheimen Server-Schlüssel auf, den Supabase vom CAPTCHA ausnimmt. Supabase lehnt so jede direkte Registrierung und Anmeldung mit dem öffentlichen Schlüssel ab, und jeder Versuch läuft durch die Bot-Prüfung und die Bremsen der App. Dort deshalb nie ein echtes oder ein immer bestehendes Secret eintragen, auch nicht mit eigenen Turnstile-Schlüsseln: Sonst kämen direkte Anmeldungen an der Login-Sperre der App vorbei.
-
-**Audit-Log:** `npm test` prüft, dass `auth.audit_log_entries` leer ist. War die Einstellung schon einmal an, im SQL-Editor einmal `delete from auth.audit_log_entries;` ausführen.
+- **Das CAPTCHA-Secret im Dashboard scheitert mit Absicht immer.** Die App prüft das Turnstile-Token selbst und ruft Supabase danach mit dem Server-Schlüssel auf, den das CAPTCHA nicht betrifft. So kommt keine Anmeldung mit dem öffentlichen Schlüssel an den Bremsen der App vorbei. Ein Test prüft das.
+- Ein Test erwartet, dass `auth.audit_log_entries` leer ist. War das Audit-Log schon einmal an, im SQL-Editor einmal `delete from auth.audit_log_entries;` ausführen.
+- **`supabase config push` nicht ausführen.** `supabase/config.toml` gilt nur für eine lokale Instanz und würde die Einstellungen oben überschreiben.
 
 ### 4. Umgebungsvariablen
 
@@ -43,392 +58,138 @@ Alle Auth-Einstellungen kommen von Hand ins Dashboard. `supabase/config.toml` gi
 cp .env.local.example .env.local
 ```
 
-In `.env.local` diese fünf Werte setzen:
+Dann die Werte in `.env.local` eintragen. Die Datei ist über `.gitignore` ausgeschlossen, das Repository enthält keine Schlüssel.
 
-```dotenv
-NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
-SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
-NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
-TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
-```
+| Variable | Wert |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://<ref>.supabase.co` (Project Settings → Data API → „Project URL“) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Project Settings → API Keys → „Publishable key“ (`sb_publishable_…`) oder der ältere `anon`-Schlüssel |
+| `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API Keys → „Secret key“ (`sb_secret_…`) oder der ältere `service_role`-Schlüssel. **Nur für den Server.** |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | `1x00000000000000000000AA` (Cloudflare-Testschlüssel, besteht immer) |
+| `TURNSTILE_SECRET_KEY` | `1x0000000000000000000000000000000AA` (Cloudflare-Test-Secret, besteht immer) |
+| `MAILJET_API_KEY`, `MAILJET_SECRET_KEY` | aus Mailjet, siehe [Schritt 7](#7-mailversand-einrichten-mailjet). **Nur für den Server.** |
+| `INVITATION_SENDER_EMAIL` | die in Mailjet bestätigte Absenderadresse |
+| `LEARNING_PLATFORM_URL` | Ziel des Knopfs „Zur Lernplattform“ in der Einladung, vollständig mit `https://` oder `http://`, z. B. `http://localhost:3000/` |
+| `TRUSTED_PROXY` | lokal weglassen oder `false`. `true` gehört nur hinter einen Host, der `X-Forwarded-For` selbst setzt. |
 
-- `NEXT_PUBLIC_SUPABASE_URL`: Project Settings → Data API (ältere Dashboards: API) → „Project URL“
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Project Settings → API Keys → „Publishable key“ (`sb_publishable_…`) oder der ältere `anon`-Schlüssel
-- `SUPABASE_SERVICE_ROLE_KEY`: Project Settings → API Keys → „Secret key“ (`sb_secret_…`) oder der ältere `service_role`-Schlüssel. **Nur für den Server:** nie mit `NEXT_PUBLIC_` davor, nie einchecken.
-- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` und `TURNSTILE_SECRET_KEY`: Cloudflares offizielle Testschlüssel, die immer bestehen.
+Nicht verwechseln: In `.env.local` steht das Secret `1x…`, das immer besteht. Im Dashboard steht `2x…`, das immer scheitert. Nach jeder Änderung an `.env.local` `npm run dev` neu starten.
 
-Nicht verwechseln: In `.env.local` steht das Secret `1x…`, das immer besteht. Im Supabase-Dashboard steht das Secret `2x…`, das immer scheitert.
-
-`TRUSTED_PROXY` bleibt lokal `false` oder fehlt ganz. Dann ignoriert die App den Kopf `X-Forwarded-For`, den sonst jeder Client selbst setzen kann, und alle Anfragen zählen für die IP-Sperre als eine Adresse. `true` gehört nur hinter einen Host, der den Kopf selbst setzt.
-
-`.env.local` ist über `.gitignore` vom Repository ausgeschlossen. Nach einer Änderung an der Datei `npm run dev` neu starten.
-
-Die vier Werte für den E-Mail-Dienst kommen im Abschnitt [E-Mail-Dienst einrichten (Mailjet)](#e-mail-dienst-einrichten-mailjet) dazu.
-
-### 5. Datenbankschema einspielen
+### 5. Datenbank einrichten
 
 ```bash
 supabase login
-supabase link --project-ref <ref>   # fragt nach dem Datenbank-Passwort aus Schritt 2
-supabase db push                    # spielt die sechs Migrationen der Reihe nach ein
-supabase migration list             # Local und Remote zeigen dieselben sechs Migrationen
+supabase link --project-ref <ref>   # fragt nach dem Datenbank-Passwort aus Schritt 3
+supabase db push                    # spielt die sechs Migrationen aus supabase/migrations/ ein
+supabase migration list             # Local und Remote zeigen dieselben sechs Einträge
 ```
 
-Die Migrationen in `supabase/migrations/`:
+Die Migrationen legen Tabellen, Row Level Security, Rechte, Trigger und zwei `pg_cron`-Aufräumjobs an. Das Datenmodell beschreibt [`docs/data-model.md`](docs/data-model.md).
 
-1. `20261021120000_proj1_training_providers.sql`: Tabellen `training_providers` und `training_provider_members` mit Row Level Security, Leseregeln und ausdrücklich gesetzten Rechten, dazu die Trigger, die bei der Registrierung Träger und Mitgliedschaft anlegen und einen Träger ohne Verwalter löschen
-2. `20261021120100_proj1_login_throttle.sql`: Login- und Registrierungsbremse im Schema `private` (drei Tabellen, fünf Funktionen, die nur der Server-Schlüssel aufrufen darf) und ein Trigger, der beim Löschen eines Kontos dessen Login-Einträge entfernt
-3. `20261021120200_proj1_cleanup_job.sql`: Erweiterung `pg_cron` mit dem stündlichen Aufräumjob `license-center-cleanup`, der die Einträge der Bremsen nach spätestens 24 Stunden löscht
-4. `20261025120000_proj2_licenses.sql`: Tabelle `licenses` mit Row Level Security und ausdrücklich gesetzten Rechten, dazu der Trigger, der vor jedem Anlegen das Kontingent und „eine Lizenz pro Adresse“ prüft, auch bei gleichzeitigen Anfragen
-5. `20261026120000_proj2_licenses_email_rule.sql`: macht die Regel der Spalte für die Teilnehmer-Adresse genau zur Regel der App
-6. `20261026150000_proj3_license_invitations.sql`: Versandstand pro Lizenz (`license_invitations`, Verwalter dürfen nur lesen), der Versandzähler für die Versandgrenzen im Schema `private`, zwei Datenbankfunktionen für Beginn und Abschluss eines Versands, die nur der Server-Schlüssel aufrufen darf, und der Aufräumjob `license-center-invitation-cleanup`, der die Zähler alle 5 Minuten nach 24 Stunden löscht
+Ist in der Shell ein `SUPABASE_ACCESS_TOKEN` eines anderen Supabase-Kontos gesetzt, nimmt die CLI dieses statt des Logins. Dann jedem Befehl `env -u SUPABASE_ACCESS_TOKEN` voranstellen.
 
-Ist in der Shell ein `SUPABASE_ACCESS_TOKEN` eines anderen Supabase-Kontos gesetzt, nutzt die CLI dieses statt des Logins. Dann jedem Befehl `env -u SUPABASE_ACCESS_TOKEN` voranstellen, z. B. `env -u SUPABASE_ACCESS_TOKEN supabase db push`.
-
-### 6. Starten und ausprobieren
+### 6. Starten
 
 ```bash
-npm install
 npm run dev
 ```
 
-http://localhost:3000 öffnen, die App leitet zur Anmeldung weiter.
+http://localhost:3000 öffnen. Die App leitet zur Anmeldung weiter.
 
-1. **Registrieren** („Noch kein Konto? Registrieren“): Name des Bildungsträgers, E-Mail-Adresse und zweimal ein Passwort mit mindestens 8 Zeichen. Die Bot-Prüfung besteht mit den Testschlüsseln immer, danach wird „Registrieren“ aktiv. Anschließend ist man angemeldet und landet auf der „Lizenzübersicht“, oben rechts stehen der Name des Trägers und „Abmelden“. Der Träger startet mit 5 Lizenzen: Die „Lizenzübersicht“ zeigt das Kontingent, in der Tabellenansicht steht es in `training_providers.license_quota`.
-2. **Abmelden:** „Abmelden“ führt zurück zur Anmeldung. „Zurück“ im Browser zeigt keine geschützte Seite mehr.
-3. **Anmelden** mit derselben E-Mail-Adresse und demselben Passwort: wieder die „Lizenzübersicht“.
+### 7. Mailversand einrichten (Mailjet)
 
-Das sollte dabei passieren:
+Ohne diesen Schritt startet die App trotzdem. Lizenzen lassen sich zuweisen, die Einladung steht dann auf „Fehlgeschlagen“.
 
-- Falsches Passwort oder unbekannte Adresse: „E-Mail-Adresse oder Passwort ist falsch.“ Beide Fälle sehen gleich aus und antworten frühestens nach 1 Sekunde.
-- Nach 5 Fehlversuchen für dieselbe Adresse ist die Anmeldung 15 Minuten gesperrt. Ab dem nächsten Versuch erscheint „Zu viele Anmeldeversuche. Bitte versuchen Sie es in 15 Minuten erneut.“ Pro IP-Adresse greift die Sperre nach 20 Fehlversuchen.
-- Registrieren mit einer schon registrierten Adresse: „Mit dieser E-Mail-Adresse ist bereits ein Konto registriert. Bitte melden Sie sich an.“ mit Link „Zum Login“.
-- Ab der sechsten Registrierung innerhalb einer Stunde von derselben IP-Adresse (Versuche mit schon registrierten Adressen zählen mit): „Zu viele Registrierungen. Bitte versuchen Sie es später erneut.“
-- http://localhost:3000/licenses ohne Anmeldung, z. B. im privaten Fenster: Weiterleitung zur Anmeldung mit dem Hinweis „Bitte melden Sie sich erneut an.“
+1. Auf [mailjet.com](https://www.mailjet.com) ein Konto im Tarif **Free** anlegen, ohne Kreditkarte.
+2. Account settings → Senders & domains → „Add a sender address“: eine eigene Adresse eintragen und den Link in der Bestätigungsmail öffnen.
+   - Keine Adresse von Yahoo, AOL oder anderen Anbietern mit strenger DMARC-Regel, deren Mails werden abgewiesen.
+   - Mit einer Gmail-Adresse landen Einladungen oft im Spam-Ordner.
+3. Account settings → Tracking: Öffnungs- und Klickverfolgung **aus**.
+4. Account settings → REST API → API key management: API-Key und Secret-Key in `.env.local` eintragen, die Absenderadresse als `INVITATION_SENDER_EMAIL`. Danach `npm run dev` neu starten.
 
-### 7. Tests
+**Nur an eigene Adressen senden**, am besten die eigene mit `+`-Zusatz (`name+test1@gmail.com`). **Nie an `example.com`:** Mailjet zählt solche Adressen als Rückläufer, und zu viele gefährden das Konto.
 
-```bash
-npm test          # Unit- und Integrationstests (Vitest)
-npm run check     # Lint, Typen, Struktur, Tests und Build in einem Lauf
-```
+### 8. Kernablauf durchspielen
 
-- Die Integrationstests laufen gegen das verbundene gehostete Projekt und lesen dieselben Schlüssel aus `.env.local` wie `npm run dev`. Dafür müssen das Schema eingespielt (Schritt 5) und die Dashboard-Einstellungen gesetzt sein (Schritt 3). Ein Test prüft z. B., dass eine direkte Anmeldung mit dem öffentlichen Schlüssel an Supabases CAPTCHA scheitert.
-- Die Tests legen Konten mit Adressen wie `lizenzzentrale-test-…@example.com` oder `…@lizenzzentrale-test.de` an und löschen sie am Ende wieder. Ihre Einträge in den Bremsen entfernt der stündliche Aufräumjob, spätestens nach 24 Stunden.
-- Supabase begrenzt Anmeldungen pro IP-Adresse. Wer die Suite viele Male hintereinander startet, kann kurz an diese Grenze stoßen und muss dann ein paar Minuten warten.
-- Die Tests schicken keine echten Mails: Mailjet ist in allen Tests nachgebildet, die Mailjet-Werte in `.env.local` lesen sie nicht.
+1. **Registrieren** („Noch kein Konto? Registrieren“): Name des Bildungsträgers, E-Mail-Adresse und zweimal ein Passwort mit mindestens 8 Zeichen. Danach ist man angemeldet und sieht die „Lizenzübersicht“ mit einem Kontingent von 5.
+2. **Zuweisen:** „Lizenz zuweisen“ mit einer eigenen Adresse. Die Liste zeigt „Versendet am …“, die Mail kommt nach kurzer Zeit an. Auch im Spam-Ordner nachsehen.
+3. **Entziehen:** „Entziehen“ und bestätigen. Die Lizenz ist sofort wieder frei.
+4. **Kontingent voll:** fünf Lizenzen zuweisen. Dann erscheint „Ihr Kontingent ist ausgeschöpft. Für weitere Lizenzen wenden Sie sich an den Anbieter.“, und „Lizenz zuweisen“ ist gesperrt.
+5. **Datentrennung:** in einem privaten Fenster einen zweiten Träger registrieren. Er sieht keine Lizenz des ersten.
+6. **Abmelden** oben rechts.
 
-## E-Mail-Dienst einrichten (Mailjet)
+Weitere Abläufe wie Login-Sperre und Versandgrenzen beschreiben die Akzeptanzkriterien in den `spec.md` der Features.
 
-Bei jeder Zuweisung schickt die App dem Teilnehmer eine Einladung über [Mailjet](https://www.mailjet.com), im kostenlosen Tarif mit 200 Mails am Tag für die ganze App. Ohne diese Einrichtung startet die App trotzdem: Lizenzen lassen sich zuweisen, die Einladung steht dann auf „Fehlgeschlagen“.
-
-### 1. Konto, Absenderadresse, Schlüssel
-
-1. Auf [mailjet.com](https://www.mailjet.com) → Sign up ein Konto im Tarif **Free** anlegen. Eine Kreditkarte ist nicht nötig.
-2. Account settings → Senders & domains → „Add a sender address“: eine eigene Adresse eintragen und den Link in der Bestätigungsmail öffnen. Mailjet versendet nur von bestätigten Absendern.
-   - Eine Gmail-Adresse geht. Die Einladungen landen damit aber oft im Spam-Ordner, und das Mailprogramm zeigt „Lizenzzentrale über …mailjet.com“. Besser ist eine Adresse einer eigenen Domain, die in Mailjet mit SPF und DKIM eingerichtet ist.
-   - Keine Adresse von Yahoo, AOL oder einem anderen Anbieter mit strenger DMARC-Regel: Deren Mails werden abgewiesen.
-   - Eine weitere Freischaltung durch Mailjet war beim Einrichten dieses Projekts nicht nötig: Die erste Einladung kam direkt bei einer anderen Adresse als der Absenderadresse an.
-3. Account settings → Tracking: Öffnungs- und Klickverfolgung **aus**. Die App schaltet beides für jede Mail ohnehin ab, die Kontoeinstellung ist die zweite Linie.
-4. Account settings → REST API → API key management: API-Key und Secret-Key des Hauptschlüssels kopieren.
-
-### 2. Umgebungsvariablen
-
-In `.env.local` diese vier Werte setzen (die Platzhalter stehen in `.env.local.example`):
-
-```dotenv
-MAILJET_API_KEY=your-mailjet-api-key
-MAILJET_SECRET_KEY=your-mailjet-secret-key
-INVITATION_SENDER_EMAIL=you@example.org
-LEARNING_PLATFORM_URL=https://lernplattform.example.org
-```
-
-- `MAILJET_API_KEY` und `MAILJET_SECRET_KEY`: die beiden Schlüssel aus Schritt 4. **Nur für den Server:** nie mit `NEXT_PUBLIC_` davor, nie einchecken.
-- `INVITATION_SENDER_EMAIL`: die in Mailjet bestätigte Absenderadresse. Als Name des Absenders steht immer „Lizenzzentrale“.
-- `LEARNING_PLATFORM_URL`: das Ziel des Knopfs „Zur Lernplattform“ in der Einladung, eine vollständige Adresse mit `https://` oder `http://`, ohne Benutzername und Passwort. Solange es keine öffentliche Adresse der Plattform gibt, ein selbst gewähltes Ziel, z. B. `http://localhost:3000/`.
-
-Fehlt einer der Werte oder ist das Linkziel ungültig, geht keine Mail hinaus, und die Einladung steht auf „Fehlgeschlagen“. Nach einer Änderung `npm run dev` neu starten.
-
-### 3. Ausprobieren
-
-- **Nur an eigene Adressen senden**, am besten die eigene mit `+`-Zusatz (`name+test1@gmail.com`). **Nie an `example.com`:** Diese Adressen gibt es nicht, Mailjet zählt sie als Rückläufer, und zu viele gefährden das Konto. Bei Lizenzen mit solchen Adressen, z. B. aus abgebrochenen Testläufen, nie „Einladung senden“ klicken.
-- **Zuweisen:** „Lizenz zuweisen“ mit einer eigenen Adresse. Der Toast „Lizenz zugewiesen“ meldet „Die Einladung ist versendet.“, die Liste zeigt „Versendet am …“. Die Mail kommt nach kurzer Zeit an, auch im Spam-Ordner nachsehen.
-- **Erneut senden** schickt dieselbe Einladung noch einmal. Pro Lizenz gehen höchstens 3 Einladungen in 24 Stunden hinaus, pro Bildungsträger höchstens 30.
-- **Entziehen** löscht die Lizenz samt Versandstand. Mailjet selbst behält Empfänger als Kontakte und den Versandverlauf, bis man sie dort löscht (Contacts).
-
----
-
-> Ab hier folgt die unveränderte Beschreibung des AI Engineering Kit (englisch), mit dem dieses Projekt entwickelt wird: Arbeitsablauf, Skills, Projektstruktur. Für die Einrichtung dieses Projekts gilt der Abschnitt oben, auch wo das Kit allgemein andere Wege beschreibt (z. B. Supabase lokal mit Docker).
-
-# AI Engineering Kit
-
-> A spec-driven workflow for [Claude Code](https://docs.anthropic.com/en/docs/claude-code): turn an idea into a production-ready web app, one feature at a time — Requirements → Architecture → Tasks → Build → QA → Deploy.
-
-This project was created with `npx create-ai-eng-app`. It ships a complete Next.js stack plus a set of Claude Code **Skills**, **Rules**, and **Sub-Agents** that drive each phase of the work. You steer; the skills do the heavy lifting and keep everything traceable.
-
-**The AI Engineering Kit is the exclusive framework of the AI Engineering Accelerator** — Alex Sprogis' program that takes you from vibe-coder to AI engineer: shipping SaaS applications that are production-ready, secure, and good enough to sell.
-
----
-
-## Quick Start
-
-The scaffolder already ran `npm install` and a setup check. Open this project in the coding agent you installed it for — `.ai-eng-kit` → `agents` says which — and:
-
-```
-/verify-setup     Confirm the stack is wired and finish anything missing
-/init             Define your product and a prioritized feature map
-```
-
-> **Codex writes these differently:** `$verify-setup`, `$init` — or pick them from the `/skills` menu.
-> Every other agent uses `/`. Unsure? Run `/help` (or `$help`); it prints the syntax for this project.
-
-`/init` runs a **discovery interview**, one question at a time (always with a recommended answer you confirm or correct), then writes your **PRD** (`docs/PRD.md`) and a prioritized **feature map** (`features/INDEX.md`). From there you build feature by feature.
+## Tests und `npm run check`
 
 ```bash
-npm run dev       # Start the dev server → http://localhost:3000
+npm test          # Vitest: Unit- und Integrationstests
+npm run check     # Lint, Typprüfung, Architekturregeln, alle Tests und Produktions-Build
 ```
 
----
+Die Teile von `npm run check` lassen sich auch einzeln starten: `npm run lint`, `npm run typecheck`, `npm run check:structure`, `npm run build`.
 
-## The Workflow
+- **Die Integrationstests brauchen das eigene Supabase-Projekt.** Die Datenbanktests in `src/test/db/` und mehrere `*.data.test.ts` laufen gegen das gehostete Projekt und lesen dieselben Schlüssel aus `.env.local` wie `npm run dev`. Vorher müssen die Schritte 3 bis 5 erledigt sein, sonst schlagen sie fehl. Das gilt auch für `npm run check`, weil es `npm test` enthält.
+- Die Tests legen eigene Testkonten an und löschen sie am Ende wieder.
+- Die Tests verschicken keine echten Mails. Mailjet ist in den Tests nachgebildet, die Mailjet-Werte aus `.env.local` werden nicht gelesen.
+- Supabase begrenzt Anmeldungen pro IP-Adresse. Wer die Tests oft hintereinander startet, muss eventuell ein paar Minuten warten.
+- Es gibt keine E2E-Tests. Der Schritt `/e2e-tests` ist im Ablauf des Kits optional und wurde nicht ausgeführt. `npm run test:e2e` ist eingerichtet und findet deshalb keine Tests.
 
-Development runs in phases, each driven by a skill. Handoffs are always user-initiated — a skill suggests the next step, you run it when ready.
+## Spezifikationen und QA-Berichte
 
-```
-/init  →  /write-spec  →  /architecture  →  /tasks  →  /build  →  /qa  →  /deploy
+Den Status aller Features zeigt [`features/INDEX.md`](features/INDEX.md). Jedes Feature hat einen eigenen Ordner:
 
-         /refine PROJ-X   change or extend any feature, anytime
-         /e2e-tests        after /qa, lock in critical user journeys (optional)
-         /help             where am I, what's next?
-```
+- [`features/PROJ-1-account-login/`](features/PROJ-1-account-login/)
+- [`features/PROJ-2-license-management/`](features/PROJ-2-license-management/)
+- [`features/PROJ-3-invitation-email/`](features/PROJ-3-invitation-email/)
 
-| Skill | Command | What it does |
-|-------|---------|--------------|
-| Setup Check | `/verify-setup` | Verifies the stack, auto-fixes what's safe, reports what needs you (e.g. Supabase keys) |
-| Codebase Map | `/map` | For a project that already exists: writes what it is built with, how it is put together, its weak spots and a proposed feature map to `docs/codebase/` — evidence with file paths, read by `/init` |
-| Reverse Spec | `/reverse-spec` | For a feature that already runs: reads the criteria off the code, you confirm them block by block, `/qa` then verifies — the regression net a grown project is missing |
-| Refactor | `/refactor` | Splits one oversized, mixed-responsibility file into modules behind an unchanged facade — only where verified specs can prove behaviour survived |
-| Project Initializer | `/init` | One-time setup: creates the PRD + feature map via the discovery interview |
-| Feature Spec Writer | `/write-spec` | Writes a full spec for one feature (user stories, acceptance criteria, edge cases) |
-| Spec Refiner | `/refine PROJ-X` | Reopens an existing spec to change, extend (small or large) or challenge it — every change to a feature goes here, not into a new spec. Also folds several follow-up specs of one feature into one |
-| Solution Architect | `/architecture` | Designs a PM-friendly technical approach (decisions, no code) |
-| Task Planner | `/tasks` | Breaks the design into an ordered, leveled, parallelizable task list |
-| Builder | `/build` | Implements the feature end to end — schema, API, UI — working through `tasks.md` |
-| QA Engineer | `/qa` | Tests against acceptance criteria, writes unit tests, re-runs the build's integration tests as regression, runs a security audit |
-| E2E Test Engineer | `/e2e-tests` | Optional: Playwright tests for the few critical journeys that must never break |
-| DevOps | `/deploy` | Deploys to your host (Vercel or Hostinger) with production-ready checks and database promotion |
-| Help | `/help` | Context-aware guide: shows where you are and what to do next |
-| Audit | `/audit` | Anytime drift check: confirms INDEX, specs, the AC→Task→Test chain, and code all still match |
-| Security Check | `/security-check` | Non-destructive check of the live app: HTTPS, security headers, protected routes, no exposed secrets, Supabase RLS |
+In jedem Ordner liegen vier Dateien:
 
----
+| Datei | Inhalt |
+|---|---|
+| `spec.md` | die Anforderungen: Akzeptanzkriterien (`AC-1`, `AC-2`, …) und Edge Cases (`EC-1`, …) |
+| `design.md` | das technische Design und die Abweichungen beim Bau |
+| `tasks.md` | der Bauplan, jede Aufgabe nennt die AC-IDs, die sie erfüllt |
+| `qa-report.md` | der Prüfbericht pro AC-ID, das Security-Audit und alle Bugs mit Status |
 
-## Spec-Driven Core
+Die Kette lautet **AC → Task → Test**. Übergreifend beschreiben [`docs/PRD.md`](docs/PRD.md) das Produkt, [`docs/data-model.md`](docs/data-model.md) die Daten und [`docs/privacy.md`](docs/privacy.md) die personenbezogenen Daten. Der Arbeitsablauf des Kits steht in [`CLAUDE.md`](CLAUDE.md).
 
-Every feature lives in its own folder `features/PROJ-X-name/`:
+## Kein Deployment
 
-| File | Created by | Role |
-|------|-----------|------|
-| `spec.md` | `/write-spec` | The **contract** — WHAT the feature does. Read-only during `/build`. |
-| `design.md` | `/architecture` | The **technical design** — HOW it's built. |
-| `tasks.md` | `/tasks` | The **ordered build plan**, with file-disjoint `[P]` tasks for parallel work. |
-| `qa-report.md` | `/qa` | The **test report**, keyed by acceptance-criterion ID. |
+Laut PRD ist kein Deployment vorgesehen. Die App läuft nur lokal mit `npm run dev`, eine Produktions-URL gibt es nicht. Was erst für den Live-Betrieb nötig wäre, fehlt deshalb bewusst: Impressum, Datenschutzerklärung und „Passwort vergessen“.
 
-**AC-IDs are the traceability backbone.** Every acceptance criterion in `spec.md` gets a stable ID (`AC-1`, `AC-2`, …; edge cases `EC-1`, …). Tasks reference the AC-IDs they fulfill, and `qa-report.md` reports per AC-ID — chaining **AC → Task → Test**.
+## Bekannte Einschränkungen
 
-**Native parallel build.** `/build` works `tasks.md` level by level. Within a level, file-disjoint `[P]` tasks fan out to parallel sub-agents (each isolated in its own git worktree); the main agent then integrates, verifies against the level's AC-IDs, and advances. No special tool or keyword — it runs in any Claude Code session.
+### Mailjet-Schlüssel für den Mailversand
 
----
+Das Repository enthält keine Mailjet-Schlüssel. Ohne `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `INVITATION_SENDER_EMAIL` und ein gültiges `LEARNING_PLATFORM_URL` geht keine Mail hinaus, und die Einladung steht auf „Fehlgeschlagen“. Alles andere funktioniert. Für den Mailteil des Kernablaufs braucht es also ein eigenes Mailjet-Konto ([Schritt 7](#7-mailversand-einrichten-mailjet)).
 
-## Test vs. Live Data (Supabase)
+Versandgrenzen: höchstens 3 Einladungen pro Lizenz und 30 pro Bildungsträger in 24 Stunden.
 
-So you never develop against real user data, `/init` asks how you want to separate environments and records the choice in `docs/PRD.md` → Constraints. Every later skill reads it from there.
+### Deferred-Bugs
 
-| Strategy | What it means | Cost |
-|----------|---------------|------|
-| **local** *(recommended, default)* | Supabase runs on your machine via **Docker** while you build; the schema is migrated to a hosted live project at `/deploy`. Needs Docker + the Supabase CLI. | Free |
-| **two-projects** | A separate hosted **dev** project to test in and a **prod** project for real users. No Docker needed. | Free tier covers both |
-| **single** | One hosted Supabase project — test and live are the same. Simplest, but no safety net. | Free |
-| **branching** | One Pro project with an always-on **staging** branch, promoted to live with a Merge. | Supabase Pro (~$35/mo) |
+Diese Bugs sind bekannt, dokumentiert und bewusst zurückgestellt. Keiner ist Critical oder High. Schritte zum Nachstellen stehen im jeweiligen `qa-report.md` unter „Bugs“.
 
-`.env.local` always holds your **test** keys (local Docker instance / dev project / staging branch / the single project) — never live keys. Schema changes are captured as `supabase/migrations/*.sql` and promoted to production during `/deploy` (`supabase db push` for `local`). For `branching`, `/deploy` previews the schema diff in plain language and flags anything destructive before you Merge.
+| Feature | Bug | Severity | Was passiert |
+|---|---|---|---|
+| PROJ-1 | BUG-3 | Low | Unter 364 px Bildschirmbreite ragt die Bot-Prüfung über die Karte hinaus, die Seite scrollt waagerecht. |
+| PROJ-1 | BUG-4 | Low | Es gibt keine eigene deutsche Fehler- und 404-Seite, Next.js zeigt seine englische Standardseite. |
+| PROJ-1 | BUG-5 | Low | Steuerzeichen im Trägernamen werden nicht am Feld abgewiesen. |
+| PROJ-1 | BUG-6 | Low | Gelingt die Registrierung, scheitert aber die Übernahme der Sitzung (z. B. bei einem kurzen Netzausfall), erscheint „bereits registriert“. Die Anmeldung klappt danach. Nur im Code gefunden, nicht ausgelöst. |
+| PROJ-1 | BUG-7 | Low | Nach dem Abmelden liest das alte Zugriffstoken über die Datenschnittstelle von Supabase weiter die eigenen Daten, bis es abläuft (höchstens etwa 1 Stunde). Die App selbst weist es ab, das Cookie ist HttpOnly. |
+| PROJ-1 | BUG-8 | Low | Bei gleichzeitigen Fehlversuchen nennt die Sperrmeldung teils „16 Minuten“ statt 15. |
+| PROJ-1 | BUG-9 | Medium | Ohne vertrauenswürdigen Proxy zählen die IP-Bremsen alle Clients als eine Adresse. 20 Fehlversuche von irgendwem sperren den Login für alle für 15 Minuten, 5 Registrierungen in einer Stunde sperren die Registrierung für alle. Zurückgestellt, weil kein Deployment vorgesehen ist: Lokal gibt es keinen Proxy, der die Adresse des Clients weitergibt. |
+| PROJ-3 | BUG-6 | Low | Endet der Trägername auf ein Steuerzeichen, steht am Satzende der Einladung „e.V. .“ statt „e.V.“. |
+| PROJ-3 | BUG-7 | Low | Die Bereinigung des Trägernamens für die Mail entfernt auch ZWJ und ZWNJ. Emoji-Folgen zerfallen in einzelne Emoji, persische und indische Schreibweisen ändern sich. Nur Darstellung, kein Sicherheitsproblem. |
 
-Building frontend-only (no backend)? `/init` records "localStorage only" and skips all of the above.
+### Bewusst nicht enthalten
+
+Laut [`docs/PRD.md`](docs/PRD.md) → Nicht-Ziele:
+
+- mehrere Verwalter pro Bildungsträger
+- eine Oberfläche für den Anbieter: Kontingente ändert er direkt in der Supabase-Tabellenansicht (`training_providers.license_quota`)
+- eine Anmeldung der Teilnehmer in der Lizenzzentrale
+- die Kopplung an ein Lernkonto der Plattform
 
 ---
 
-## Feature Tracking
-
-All features are tracked in `features/INDEX.md`. Each row links to the feature **folder**:
-
-| ID | Feature | Status | Spec |
-|----|---------|--------|------|
-| PROJ-1 | User Login | Deployed | [Folder](features/PROJ-1-user-login/) |
-| PROJ-2 | Dashboard | In Progress | [Folder](features/PROJ-2-dashboard/) |
-
-Status flow: **Roadmap → Planned → Architected → Tasked → In Progress → In Review → Approved → Deployed**. Every skill reads this file at start and updates it when done, preventing duplicate work.
-
----
-
-## Tech Stack
-
-| Category | Tool | Why |
-|----------|------|-----|
-| **Framework** | Next.js 16 (App Router) | React + Server Components |
-| **Language** | TypeScript | Type safety |
-| **Styling** | Tailwind CSS | Utility-first CSS |
-| **UI Library** | shadcn/ui | Copy-paste, customizable components |
-| **Backend** | Supabase (optional) | PostgreSQL + Auth + Storage |
-| **Deployment** | Vercel or Hostinger | GitHub-connected auto-deploy |
-| **Validation** | Zod + react-hook-form | Runtime validation |
-| **Testing** | Vitest + Playwright | Unit/integration + E2E |
-
----
-
-## Project Structure
-
-```
-.
-├── CLAUDE.md / AGENTS.md           Auto-loaded project context (map + managed block)
-│                                   Exactly one of them carries content — see below
-├── .claude/                        (Claude Code; other agents use their own folder)
-│   ├── settings.json               Permissions (committed)
-│   ├── rules/                      Auto-applied rules
-│   │   ├── general.md                  Git workflow, feature tracking, status updates
-│   │   └── security.md                 Secrets, headers, auth
-│   ├── skills/                     Invocable workflows (/command) — one folder per skill:
-│   │   │                           verify-setup, init, write-spec, refine, architecture, tasks,
-│   │   │                           build, qa, e2e-tests, deploy, security-check, dsgvo, audit,
-│   │   │                           cleanup, help, map, reverse-spec, refactor, starter-kit-migration
-│   │   └── <skill>/SKILL.md
-│   └── agents/
-│       └── qa-engineer.md          Sub-agent config (model, tools, limits)
-├── features/                       One folder per feature
-│   ├── INDEX.md                        Status tracking
-│   ├── README.md                       Feature-folder format
-│   └── PROJ-X-name/                    spec.md · design.md · tasks.md · qa-report.md
-├── docs/
-│   ├── PRD.md                       Product Requirements Document
-│   ├── data-model.md                App-wide data model (entities + relationships)
-│   ├── app-shell.md                 Navigation, layout regions, page pattern
-│   ├── privacy.md                   What personal data the product processes (kept by /dsgvo)
-│   ├── tech-debt.md                 Internal work with a status (fed by /map, worked by /refactor)
-│   ├── production/                  Topic guides: error tracking, headers, rate limiting, performance
-│   ├── stacks/                      Stack packs — the concrete procedures for this project's stack
-│   └── law/                         Law packs — GDPR, Swiss DSG, EU AI Act (read by /dsgvo)
-├── supabase/                       Created by `supabase init` in /init when the backend is Supabase
-│   └── migrations/                  Schema changes as .sql files
-├── tests/                          Playwright E2E tests (added by /e2e-tests)
-├── src/
-│   ├── app/                        Pages (Next.js App Router)
-│   ├── components/ui/              shadcn/ui components (never recreate these)
-│   ├── hooks/                      Custom React hooks
-│   └── lib/                        Utilities (supabase/server.ts + client.ts, utils.ts)
-└── public/                         Static files
-```
-
----
-
-## How It Works Under the Hood
-
-- **Skills** are structured workflows your agent discovers automatically. Most run inline (live interview / oversight); `/build` forks isolated sub-agents for parallel tasks, and `/qa` hands verification to `qa-engineer` sub-agents that have never seen the build. Where your agent has no sub-agents, `/build` works sequentially and `/qa` asks for a fresh session instead — the verifier must not know how the feature was built.
-- **Rules** are the project-wide standards — workflow discipline, git conventions, working language, security. They are loaded in every session, so they apply to every skill without anyone loading them by hand.
-- **The memory file** is auto-loaded every session with the tech stack, conventions, and pointers to the PRD and feature index.
-
-**Where those live depends on your agent** — same content, each in the place that agent reads:
-
-| agent | skills | rules |
-|---|---|---|
-| Claude Code | `.claude/skills/` | `.claude/rules/`, or inside the shared memory file when rules are inline |
-| Codex | `.codex/skills/` | inside the memory file |
-| Cursor | `.cursor/skills/` | `.cursor/rules/*.mdc` |
-| GitHub Copilot | `.github/skills/` | `.github/instructions/*.instructions.md` |
-| Antigravity | `.agents/skills/` | `.agents/rules/` |
-| Grok Build | `.grok/skills/` | inside the memory file |
-| Kimi Code | `.kimi-code/skills/` | inside the memory file — skills are called `/skill:build` |
-
-**One file carries your project's context.** In a Claude-Code-only project that is `CLAUDE.md`; with any other agent it is `AGENTS.md`, and the remaining memory files are generated pointers to it. Edit the one with content — the pointers are overwritten on every update.
-
-**Claude shares inline rules.** When Codex, Grok or Kimi is selected, the kit puts its general and
-security rules in `AGENTS.md`. Claude reads them through its `@AGENTS.md` pointer; the kit then
-ships no duplicate `general.md` or `security.md` in `.claude/rules/`, which Claude would also load
-automatically. Your own additional rules still belong there. On update, old kit copies are retired;
-edited copies and copies without a recorded content hash are saved in `.ai-eng-kit-backup/` first.
-
-**One thing is not the same everywhere.** `.claude/settings.json` (Claude Code) and `.grok/config.toml` (Grok Build) *block* reading `.env*` files and force-pushing. Only those two enforce it. With the other agents — Kimi Code included, whose permission rules live in your user config, not in the project — the same rules are instructions your agent follows — real, but not a wall it cannot cross.
-
-### Recommended (optional): live API docs
-
-Memorized API knowledge goes stale. Connecting a live-docs MCP server like **[Context7](https://github.com/upstash/context7)** lets `/architecture` and `/build` pull the *current* API surface of libraries (Supabase, Stripe, Next.js, …) instead of relying on memory — fewer outdated-API bugs. It's entirely optional: every skill works without it and never blocks if it's absent. To enable it, add Context7 as an MCP server in your Claude Code settings.
-
-- **State lives in files, not memory.** Every skill re-reads `features/INDEX.md` and the relevant feature folder at start — nothing is lost after a new session or context compaction.
-- **Context is layered.** `CLAUDE.md` + rules (always) → `SKILL.md` (when invoked) → feature spec (on demand) → `docs/production/` (only when referenced).
-- **Context is isolated.** Heavy work runs in forked sub-agents with their own context window, so noise from one task doesn't pollute another.
-- **Always read, never guess.** A global rule enforces reading a file before modifying it and verifying paths/APIs by reading — preventing hallucinated code references.
-
----
-
-## Scripts
-
-```bash
-npm run dev          # Development server (localhost:3000)
-npm run build        # Production build
-npm run start        # Production server
-npm run lint         # ESLint
-npm run typecheck    # Generate Next.js types, then check TypeScript
-npm run check        # Lint, typecheck, architecture, unit/integration tests, build
-npm run test:structure # Repeatable counter-probes of the architecture config
-npm test             # Vitest: unit + integration tests
-npm run test:e2e     # Playwright: E2E tests (added by /e2e-tests)
-npm run test:all     # Both test suites
-```
-
-> Playwright browsers are **not** installed during setup. The first `/e2e-tests` run installs the browser binary (~300 MB) once — keeping everyday setup fast.
-
-`check` is the closing gate for `/build`; during changes run the affected test files. Full test
-suites still run only by the main agent per build level and at the end, and once by QA's owner.
-The aggregate replaces the closing individual runs, including covered runtimes; `/init checks`
-records its coverage. QA keeps its narrow test command and diff-scoped re-verification.
-Older scaffolds can adopt the scripts through `/verify-setup`; `update` preserves app tooling.
-Existing projects retain their own checks and module convention. The Next.js default structure
-and import rules are described in `docs/stacks/framework-nextjs.md`.
-
----
-
-## Production Guides
-
-Standalone guides in `docs/production/`, surfaced by `/deploy` when relevant:
-
-| Guide | Setup | What it does |
-|-------|-------|--------------|
-| [Error Tracking](docs/production/error-tracking.md) | 5 min | Sentry integration for automatic error capture |
-| [Security Headers](docs/production/security-headers.md) | 2 min | XSS, clickjacking, MIME-sniffing protection |
-| [Performance](docs/production/performance.md) | 10 min | Lighthouse checks, image optimization, caching |
-| [Database Optimization](docs/production/database-optimization.md) | 15 min | Indexing, N+1 prevention, query optimization |
-| [Rate Limiting](docs/production/rate-limiting.md) | 10 min | Upstash Redis for API abuse prevention |
-
----
-
-## Customize It
-
-This is your project — adapt it freely:
-
-1. **Your memory file** (`CLAUDE.md` or `AGENTS.md` — the one with content) — project-specific conventions and commands. Keep the managed block between the markers intact; it's refreshed on kit updates.
-2. **docs/PRD.md** — product vision and roadmap
-3. **Your agent's rules folder** — coding standards for your team
-4. **Your agent's skills folder** — tweak the workflows themselves. Note that `npx create-ai-eng-app update` regenerates the kit's own skills; put your own in separate folders, they are kept.
-5. **.claude/settings.json** — permissions (Claude Code)
-
----
-
-## Author
-
-Created by **Alex Sprogis** — AI Product Engineer & Content Creator.
-
-- [YouTube](https://www.youtube.com/@alex.sprogis)
-- [Website](https://alexsprogis.de)
-
-## License
-
-MIT License — free to use for your projects.
+Entwickelt mit dem AI Engineering Kit von Alex Sprogis (MIT-Lizenz).
