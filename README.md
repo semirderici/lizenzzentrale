@@ -29,7 +29,7 @@ Die App läuft nur lokal, gegen ein eigenes gehostetes Supabase-Projekt im koste
 ### 2. Installation
 
 ```bash
-git clone <Repository-URL> lizenzzentrale
+git clone https://github.com/semirderici/lizenzzentrale.git lizenzzentrale
 cd lizenzzentrale
 npm install
 ```
